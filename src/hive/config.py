@@ -89,6 +89,9 @@ class Config:
     server_port: int = 3000
     link_window_minutes: int = 30
     scrub_patterns: list[str] = field(default_factory=list)
+    search_url: str = "http://localhost:3033"
+    search_binary: str = "hive-search"
+    search_assets_path: Path | None = None
 
     @classmethod
     def load(cls) -> Config:
@@ -109,6 +112,15 @@ class Config:
                 config.server_port = user_data["server_port"]
             if "link_window_minutes" in user_data:
                 config.link_window_minutes = user_data["link_window_minutes"]
+
+            # [search] section
+            search = user_data.get("search", {})
+            if "url" in search:
+                config.search_url = search["url"]
+            if "binary" in search:
+                config.search_binary = search["binary"]
+            if "assets_path" in search:
+                config.search_assets_path = Path(search["assets_path"])
 
         # Load scrub patterns from default file + user overrides
         config.scrub_patterns = _load_scrub_patterns(user_data)

@@ -602,8 +602,14 @@ def push(project: str | None, since: str | None, dry_run: bool):
 
 @cli.command()
 @click.option("--port", default=None, type=int, help="Port (default from config or 3000)")
-def serve(port: int | None):
+@click.option("--no-search", is_flag=True, help="Disable witchcraft search backend")
+def serve(port: int | None, no_search: bool):
     """Start the team server."""
+    import shutil
+    import signal
+    import subprocess
+    import time
+
     import uvicorn
 
     from hive.serve.api import create_app
@@ -615,10 +621,115 @@ def serve(port: int | None):
     # Initialize server database
     init_db(config, db_path=config.server_db_path)
 
+    # Start witchcraft search backend if available
+    search_proc = None
+    if not no_search and config.search_assets_path:
+        binary = shutil.which(config.search_binary)
+        if binary:
+            db_path = str(config.db_path).replace("store.db", "search.db")
+            cmd = [
+                binary,
+                "--db-path",
+                db_path,
+                "--assets",
+                str(config.search_assets_path),
+                "--port",
+                str(config.search_url.rsplit(":", 1)[-1]),
+            ]
+            console.print(f"[dim]Starting search backend: {config.search_binary}[/dim]")
+            search_proc = subprocess.Popen(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            # Wait for search backend to be ready
+            from hive.search import SearchClient
+
+            client = SearchClient(config.search_url)
+            for _ in range(60):  # up to 30s
+                if client.is_available():
+                    console.print("[green]Search backend ready.[/green]")
+                    break
+                time.sleep(0.5)
+            else:
+                console.print(
+                    "[yellow]Search backend did not start in time (continuing without it).[/yellow]"
+                )
+        else:
+            console.print(
+                f"[dim]Search binary '{config.search_binary}' not found (FTS5 fallback active).[/dim]"
+            )
+
     console.print(f"[bold]Starting hive server on http://0.0.0.0:{actual_port}[/bold]")
     console.print(f"  Server DB: {config.server_db_path}")
     app = create_app(config=config, db_path=config.server_db_path)
-    uvicorn.run(app, host="0.0.0.0", port=actual_port, log_level="info")
+
+    def _shutdown(signum, frame):
+        if search_proc:
+            search_proc.terminate()
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=actual_port, log_level="info")
+    finally:
+        if search_proc:
+            search_proc.terminate()
+            search_proc.wait(timeout=5)
+
+
+# ── reindex ─────────────────────────────────────────────────────────
+
+
+@cli.command()
+def reindex():
+    """Rebuild the witchcraft search index from all stored sessions."""
+    from hive.search import SearchClient, build_metadata, build_search_body
+    from hive.store.query import QueryAPI
+
+    config = Config.load()
+    client = SearchClient(config.search_url)
+
+    if not client.is_available():
+        console.print("[red]Search backend is not running.[/red]")
+        console.print("Start it with: hive-search --db-path ~/.hive/search.db --assets <path>")
+        return
+
+    api = QueryAPI(config)
+    sessions = api.list_sessions(limit=100000)
+    total = len(sessions)
+    console.print(f"Reindexing {total} sessions into witchcraft search backend...")
+
+    indexed = 0
+    for i, session in enumerate(sessions, 1):
+        full = api.get_session(session["id"], detail="messages")
+        if not full or not full.get("messages"):
+            continue
+
+        body, chunk_lengths = build_search_body(full["messages"])
+        if not body:
+            continue
+
+        metadata = build_metadata(full)
+        try:
+            client.add_document(full["id"], full.get("started_at"), metadata, body, chunk_lengths)
+            indexed += 1
+        except Exception as e:
+            console.print(f"  [red]Failed[/red] {full['id'][:12]}: {e}")
+
+        if i % 10 == 0:
+            console.print(f"  [{i}/{total}] processed...")
+
+    # Trigger embedding and indexing for all new documents
+    console.print("Triggering embedding and indexing...")
+    try:
+        result = client.trigger_index()
+        console.print(
+            f"[green]Done.[/green] Indexed {indexed} sessions, "
+            f"embedded {result.get('embedded', 0)} chunks."
+        )
+    except Exception as e:
+        console.print(f"[red]Indexing failed:[/red] {e}")
 
 
 # ── mcp ─────────────────────────────────────────────────────────────
