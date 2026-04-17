@@ -109,6 +109,8 @@ jobs:
   # ── Publish Python package to PyPI ──────────────────────────────────
 
   publish-pypi:
+    needs: release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
