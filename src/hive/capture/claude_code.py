@@ -251,7 +251,9 @@ class ClaudeCodeAdapter(CaptureAdapter):
             client.add_document(
                 session_id, session.get("started_at"), metadata, body, chunk_lengths
             )
-            client.trigger_index(limit=1)
+            # Don't trigger_index here — it runs T5 inference synchronously.
+            # Witchcraft searches unindexed docs automatically; periodic
+            # indexing (via `hive reindex` or the server) handles the rest.
         except Exception:
             logger.debug("Search backend indexing failed for session %s", session_id)
 

@@ -93,7 +93,12 @@ def init(project: str):
 
 def _install_claude_hooks(project_path: Path):
     """Install Claude Code hooks into .claude/settings.json."""
+    import shutil
+
     console.print("  Installing Claude Code hooks...", end=" ")
+
+    # Resolve the absolute path to the hive binary so hooks work outside the venv
+    hive_bin = shutil.which("hive") or sys.executable.replace("python", "hive")
 
     settings_dir = project_path / ".claude"
     settings_dir.mkdir(exist_ok=True)
@@ -109,28 +114,32 @@ def _install_claude_hooks(project_path: Path):
     hooks = settings.setdefault("hooks", {})
 
     hook_defs = {
-        "SessionStart": ["hive capture session-start"],
-        "Stop": ["hive capture stop"],
-        "PostToolUse": ["hive capture post-tool-use"],
-        "PreCompact": ["hive capture pre-compact"],
+        "SessionStart": [f"{hive_bin} capture session-start"],
+        "Stop": [f"{hive_bin} capture stop"],
+        "PostToolUse": [f"{hive_bin} capture post-tool-use"],
+        "PreCompact": [f"{hive_bin} capture pre-compact"],
     }
 
     for event, commands in hook_defs.items():
         existing = hooks.get(event, [])
-        # Collect all commands already present across all matcher groups
-        existing_cmds: set[str] = set()
+        # Remove any old hive capture hooks (bare or absolute-path)
+        cleaned = []
         for group in existing:
             if isinstance(group, dict):
-                for h in group.get("hooks", []):
-                    if isinstance(h, dict):
-                        existing_cmds.add(h.get("command", ""))
-        # Build list of new hooks to add
-        new_hooks = [
-            {"type": "command", "command": cmd} for cmd in commands if cmd not in existing_cmds
-        ]
-        if new_hooks:
-            existing.append({"matcher": "", "hooks": new_hooks})
-        hooks[event] = existing
+                non_hive = [
+                    h
+                    for h in group.get("hooks", [])
+                    if not (isinstance(h, dict) and "hive capture" in h.get("command", ""))
+                ]
+                if non_hive:
+                    cleaned.append({**group, "hooks": non_hive})
+            else:
+                cleaned.append(group)
+        # Add fresh hive hooks
+        cleaned.append(
+            {"matcher": "", "hooks": [{"type": "command", "command": cmd} for cmd in commands]}
+        )
+        hooks[event] = cleaned
 
     settings["hooks"] = hooks
     settings_file.write_text(json.dumps(settings, indent=2) + "\n")
