@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,11 +20,29 @@ import tomli_w
 
 logger = logging.getLogger(__name__)
 
-HIVE_DIR = Path.home() / ".hive"
-DEFAULT_DB_PATH = HIVE_DIR / "store.db"
-DEFAULT_SERVER_DB_PATH = HIVE_DIR / "server.db"
-DEFAULT_CONFIG_PATH = HIVE_DIR / "config.toml"
+
+def _xdg_data_home() -> Path:
+    """Return $XDG_DATA_HOME or its default (~/.local/share)."""
+    env = os.environ.get("XDG_DATA_HOME")
+    return Path(env) if env else Path.home() / ".local" / "share"
+
+
+def _xdg_config_home() -> Path:
+    """Return $XDG_CONFIG_HOME or its default (~/.config)."""
+    env = os.environ.get("XDG_CONFIG_HOME")
+    return Path(env) if env else Path.home() / ".config"
+
+
+HIVE_DATA_DIR = _xdg_data_home() / "hive"
+HIVE_CONFIG_DIR = _xdg_config_home() / "hive"
+
+DEFAULT_DB_PATH = HIVE_DATA_DIR / "store.db"
+DEFAULT_SERVER_DB_PATH = HIVE_DATA_DIR / "server.db"
+DEFAULT_CONFIG_PATH = HIVE_CONFIG_DIR / "config.toml"
 DEFAULT_WATCH_PATH = Path.home() / ".claude" / "projects"
+
+# Public alias used by cli.py (init, etc.)
+HIVE_DIR = HIVE_DATA_DIR
 
 # Shipped with the package
 _DEFAULT_PATTERNS_FILE = Path(__file__).parent / "scrub_patterns.toml"
@@ -89,11 +108,15 @@ class Config:
     server_port: int = 3000
     link_window_minutes: int = 30
     scrub_patterns: list[str] = field(default_factory=list)
+    search_url: str = "http://localhost:3033"
+    search_binary: str = "hive-search"
+    search_assets_path: Path | None = None
 
     @classmethod
     def load(cls) -> Config:
         config = cls()
         user_data: dict | None = None
+
         if DEFAULT_CONFIG_PATH.exists():
             with open(DEFAULT_CONFIG_PATH, "rb") as f:
                 user_data = tomllib.load(f)
@@ -109,6 +132,15 @@ class Config:
                 config.server_port = user_data["server_port"]
             if "link_window_minutes" in user_data:
                 config.link_window_minutes = user_data["link_window_minutes"]
+
+            # [search] section
+            search = user_data.get("search", {})
+            if "url" in search:
+                config.search_url = search["url"]
+            if "binary" in search:
+                config.search_binary = search["binary"]
+            if "assets_path" in search:
+                config.search_assets_path = Path(search["assets_path"])
 
         # Load scrub patterns from default file + user overrides
         config.scrub_patterns = _load_scrub_patterns(user_data)

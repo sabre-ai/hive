@@ -27,3 +27,9 @@ build/
 .ruff_cache/
 .pytest_cache/
 .claude/
+
+# Rust build artifacts
+hive-server/target/
+
+# Model assets (large binaries — download via make)
+hive-server/assets/

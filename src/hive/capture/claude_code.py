@@ -136,6 +136,9 @@ class ClaudeCodeAdapter(CaptureAdapter):
         session_data = {"project_path": data.get("project_path", ""), "messages": messages}
         run_enrichers(session_id, session_data, self._api)
 
+        # Index in witchcraft search backend
+        self._index_in_search(session_id, data, messages, summary)
+
         # Auto-push to server if sharing is enabled
         self._maybe_push(session_id, data.get("project_path", ""))
 
@@ -217,6 +220,43 @@ class ClaudeCodeAdapter(CaptureAdapter):
         except Exception:
             logger.debug("Error in _maybe_push for session %s", session_id)
 
+    def _index_in_search(
+        self,
+        session_id: str,
+        data: dict,
+        messages: list[dict[str, Any]],
+        summary: str | None,
+    ) -> None:
+        """Push session into the witchcraft search backend (best-effort)."""
+        try:
+            from hive.search import SearchClient, build_metadata, build_search_body
+
+            client = SearchClient(self._config.search_url)
+            if not client.is_available():
+                return
+
+            body, chunk_lengths = build_search_body(messages)
+            if not body:
+                return
+
+            session = {
+                "id": session_id,
+                "project_path": data.get("project_path", ""),
+                "author": data.get("author", ""),
+                "source": self.name(),
+                "started_at": data.get("started_at", ""),
+                "summary": summary or "",
+            }
+            metadata = build_metadata(session)
+            client.add_document(
+                session_id, session.get("started_at"), metadata, body, chunk_lengths
+            )
+            # Don't trigger_index here — it runs T5 inference synchronously.
+            # Witchcraft searches unindexed docs automatically; periodic
+            # indexing (via `hive reindex` or the server) handles the rest.
+        except Exception:
+            logger.debug("Search backend indexing failed for session %s", session_id)
+
     # ── Backfill ─────────────────────────────────────────────────────
 
     def backfill(self, root: Path | None = None) -> int:
@@ -295,6 +335,14 @@ class ClaudeCodeAdapter(CaptureAdapter):
 
             session_data = {"project_path": project_path, "messages": messages}
             run_enrichers(session_id, session_data, self._api)
+
+            # Index in witchcraft search backend
+            self._index_in_search(
+                session_id,
+                {"project_path": project_path, "author": author, "started_at": started},
+                messages,
+                summary,
+            )
 
             imported += 1
             logger.info("Backfilled session %s (%d messages)", session_id, len(messages))

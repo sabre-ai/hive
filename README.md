@@ -4,6 +4,22 @@ Team server for Claude Code. Captures AI coding sessions from every developer's 
 
 ## Quick Start
 
+### One-Line Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sabre-ai/hive/main/install.sh | bash
+```
+
+This will:
+1. Clone the repo to `~/.local/share/hive/repo`
+2. Install the Python package via `uv`
+3. Download a pre-built `hive-search` binary (or build from source if no release exists)
+4. Set up Claude Code hooks and backfill existing sessions
+5. Start the semantic search server as a persistent service (launchd on macOS)
+6. Reindex all existing sessions
+
+**Prerequisites:** `uv` and model assets from [witchcraft](https://github.com/dropbox/witchcraft) (`make download`, then `export WITCHCRAFT_DIR=/path/to/witchcraft`).
+
 ### Solo Mode (one laptop)
 
 ```bash

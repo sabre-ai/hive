@@ -1,4 +1,4 @@
-name: Release to PyPI
+name: Release
 
 on:
   push:
@@ -6,10 +6,90 @@ on:
       - "v*"
 
 permissions:
+  contents: write
   id-token: write
 
 jobs:
-  publish:
+  # ── Build hive-search binaries ──────────────────────────────────────
+
+  build-search:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14          # Apple Silicon
+            target: aarch64-apple-darwin
+            features: t5-quantized,progress,metal
+            artifact: hive-search-darwin-arm64
+          - os: macos-13          # Intel Mac
+            target: x86_64-apple-darwin
+            features: t5-quantized,progress
+            artifact: hive-search-darwin-x64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            features: t5-quantized,progress
+            artifact: hive-search-linux-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            hive-server/target
+          key: ${{ matrix.target }}-cargo-${{ hashFiles('hive-server/Cargo.lock') }}
+
+      - name: Build hive-search
+        working-directory: hive-server
+        run: cargo build --release --target ${{ matrix.target }} --features ${{ matrix.features }}
+
+      - name: Package binary
+        run: |
+          mkdir -p dist
+          cp hive-server/target/${{ matrix.target }}/release/hive-search dist/${{ matrix.artifact }}
+          chmod +x dist/${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  # ── Create GitHub Release ───────────────────────────────────────────
+
+  release:
+    needs: build-search
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/hive-search-darwin-arm64/hive-search-darwin-arm64
+            dist/hive-search-darwin-x64/hive-search-darwin-x64
+            dist/hive-search-linux-x64/hive-search-linux-x64
+
+  # ── Publish Python package to PyPI ──────────────────────────────────
+
+  publish-pypi:
     runs-on: ubuntu-latest
 
     steps:

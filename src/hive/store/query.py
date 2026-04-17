@@ -129,6 +129,84 @@ class QueryAPI:
         until: str | None = None,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
+        """Search sessions via witchcraft semantic search, falling back to FTS5."""
+        try:
+            from hive.search import SearchClient
+
+            client = SearchClient(self.config.search_url)
+            if client.is_available():
+                return self._search_witchcraft(client, query, project, author, since, until, limit)
+        except Exception:
+            pass
+
+        return self._search_fts5(query, project, author, since, until, limit)
+
+    def _search_witchcraft(
+        self,
+        client: Any,
+        query: str,
+        project: str | None,
+        author: str | None,
+        since: str | None,
+        until: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Search via the witchcraft backend and join with hive metadata."""
+        results = client.search(
+            query, project=project, author=author, since=since, until=until, limit=limit
+        )
+        if not results:
+            return []
+
+        # Extract session IDs from metadata and look up full session data
+        session_ids = []
+        result_map: dict[str, dict[str, Any]] = {}
+        for item in results:
+            meta = item.get("metadata", {})
+            sid = meta.get("session_id", "")
+            if sid and sid not in result_map:
+                session_ids.append(sid)
+                result_map[sid] = item
+
+        if not session_ids:
+            return []
+
+        # Batch lookup sessions from hive's store.db
+        conn = self._conn()
+        placeholders = ",".join("?" for _ in session_ids)
+        rows = conn.execute(
+            f"SELECT * FROM sessions WHERE id IN ({placeholders})",
+            session_ids,
+        ).fetchall()
+        conn.close()
+
+        # Merge hive metadata with witchcraft scores
+        output = []
+        for row in rows:
+            session = dict(row)
+            sid = session["id"]
+            wc = result_map.get(sid, {})
+            # Use matched body chunk as snippet, trimmed
+            body = wc.get("body", "")
+            snippet = body[:200] + "…" if len(body) > 200 else body
+            session["snippet"] = snippet
+            session["score"] = wc.get("score", 0.0)
+            output.append(session)
+
+        # Sort by witchcraft score (descending)
+        output.sort(key=lambda s: s.get("score", 0.0), reverse=True)
+        return output
+
+    def _search_fts5(
+        self,
+        query: str,
+        project: str | None,
+        author: str | None,
+        since: str | None,
+        until: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Fall back to SQLite FTS5 keyword search."""
         conn = self._conn()
         clauses = []
         params: list[Any] = [query]
@@ -603,6 +681,17 @@ class QueryAPI:
         conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
         conn.commit()
         conn.close()
+
+        # Remove from witchcraft search backend
+        try:
+            from hive.search import SearchClient
+
+            client = SearchClient(self.config.search_url)
+            if client.is_available():
+                client.remove_document(session_id)
+        except Exception:
+            pass
+
         return True
 
     # ── Export / Import (for push to server) ─────────────────────────
@@ -713,3 +802,24 @@ class QueryAPI:
 
         conn.commit()
         conn.close()
+
+        # Index in witchcraft search backend
+        try:
+            from hive.search import SearchClient, build_metadata, build_search_body
+
+            client = SearchClient(self.config.search_url)
+            if client.is_available():
+                messages_for_search = [
+                    {"role": m.get("role", "human"), "content": m.get("content", "")}
+                    for m in payload.get("messages", [])
+                    if m.get("content")
+                ]
+                body, chunk_lengths = build_search_body(messages_for_search)
+                if body:
+                    metadata = build_metadata(payload)
+                    client.add_document(
+                        session_id, payload.get("started_at"), metadata, body, chunk_lengths
+                    )
+                    client.trigger_index(limit=1)
+        except Exception:
+            pass
