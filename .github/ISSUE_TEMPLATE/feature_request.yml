@@ -1,0 +1,35 @@
+name: Feature Request
+description: Suggest a feature for hive
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: Problem Description
+      description: A clear description of the problem or need this feature would address.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you would like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you have considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context or screenshots about the feature request.
+    validations:
+      required: false

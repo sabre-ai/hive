@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# hive
+*.db
+.hive/
+
+# Environment
+.env
+.env.local
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+.claude/

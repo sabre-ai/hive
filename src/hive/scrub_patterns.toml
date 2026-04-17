@@ -1,0 +1,50 @@
+# Default secret scrubbing patterns for hive.
+#
+# Each [section] is a category. Each key = "regex" is a named pattern.
+# Users can add extra patterns or disable specific ones in
+# ~/.hive/config.toml under [scrub]. See docs/configuration.md.
+
+[ai_providers]
+openai = 'sk-[a-zA-Z0-9\-_]{20,}'
+openai_proj = 'sk-proj-[a-zA-Z0-9\-_]{20,}'
+anthropic = 'sk-ant-[a-zA-Z0-9\-_]{20,}'
+generic_api_key = 'key-[a-zA-Z0-9]{32,}'
+
+[cloud]
+aws_access_key = 'AKIA[A-Z0-9]{16}'
+aws_secret = '(?i)aws_secret_access_key\s*[=:]\s*\S{30,}'
+google_api_key = 'AIza[a-zA-Z0-9_\-]{35}'
+google_oauth = 'ya29\.[a-zA-Z0-9_\-]{50,}'
+
+[vcs_tokens]
+github_pat = 'ghp_[a-zA-Z0-9]{36,}'
+github_oauth = 'gho_[a-zA-Z0-9]{36,}'
+github_app = 'ghs_[a-zA-Z0-9]{36,}'
+github_refresh = 'ghr_[a-zA-Z0-9]{36,}'
+github_fine_grained = 'github_pat_[a-zA-Z0-9_]{22,}'
+gitlab_pat = 'glpat-[a-zA-Z0-9\-_]{20,}'
+
+[auth_tokens]
+bearer = '[Bb]earer\s+[a-zA-Z0-9._\-]{20,}'
+basic_auth = '[Bb]asic\s+[a-zA-Z0-9+/=]{20,}'
+slack = 'xox[bpras]-[a-zA-Z0-9\-]{10,}'
+jwt = '(?:eyJ[a-zA-Z0-9_\-]{20,}\.){1,2}[a-zA-Z0-9_\-]{20,}'
+
+[connection_strings]
+db_uri = '(?:mongodb|postgres|mysql|redis|amqp)://\S{10,}'
+db_env = '(?i)(?:DATABASE_URL|DB_URL|REDIS_URL|MONGO_URI)\s*[=:]\s*\S{10,}'
+
+[private_keys]
+private_key_header = '-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'
+certificate_header = '-----BEGIN CERTIFICATE-----'
+
+[generic_secrets]
+key_value = '(?i)(?:api[_-]?key|api[_-]?secret|secret[_-]?key|access[_-]?key|auth[_-]?token|client[_-]?secret|private[_-]?key|encryption[_-]?key)\s*[=:]\s*\S{12,}'
+password = '(?i)(?:password|passwd|pwd)\s*[=:]\s*\S{8,}'
+
+[webhooks]
+slack_webhook = 'https://hooks\.slack\.com/services/[a-zA-Z0-9/]+'
+discord_webhook = 'https://discord(?:app)?\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_\-]+'
+
+[env_vars]
+secret_env = '(?:export\s+)?[A-Z_]{2,30}(?:_KEY|_SECRET|_TOKEN|_PASSWORD|_CREDENTIAL)\s*=\s*\S{12,}'
