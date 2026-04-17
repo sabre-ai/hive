@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0). Leave empty to use the current commit as a draft."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -78,10 +84,23 @@ jobs:
         with:
           path: dist
 
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=dev-$(echo ${{ github.sha }} | head -c 8)" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
           generate_release_notes: true
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.tag == '' }}
           files: |
             dist/hive-search-darwin-arm64/hive-search-darwin-arm64
             dist/hive-search-darwin-x64/hive-search-darwin-x64
