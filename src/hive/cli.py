@@ -126,9 +126,7 @@ def _install_claude_hooks(project_path: Path):
                         existing_cmds.add(h.get("command", ""))
         # Build list of new hooks to add
         new_hooks = [
-            {"type": "command", "command": cmd}
-            for cmd in commands
-            if cmd not in existing_cmds
+            {"type": "command", "command": cmd} for cmd in commands if cmd not in existing_cmds
         ]
         if new_hooks:
             existing.append({"matcher": "", "hooks": new_hooks})
