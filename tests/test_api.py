@@ -13,14 +13,20 @@ from hive.store.db import init_db
 from hive.store.query import QueryAPI
 
 
+def _test_config(db_path: Path) -> Config:
+    cfg = Config()
+    cfg.db_path = db_path
+    cfg.search_url = "http://localhost:0"
+    return cfg
+
+
 @pytest.fixture()
 def client(tmp_path: Path) -> TestClient:
     """Create a TestClient backed by a temporary database."""
     db_path = tmp_path / "api_test.db"
     conn = init_db(db_path=db_path)
     conn.close()
-    cfg = Config()
-    cfg.db_path = db_path
+    cfg = _test_config(db_path)
     app = create_app(config=cfg, db_path=db_path)
     return TestClient(app)
 
@@ -31,8 +37,7 @@ def seeded_client(tmp_path: Path, sample_payload: dict) -> TestClient:
     db_path = tmp_path / "api_seeded.db"
     conn = init_db(db_path=db_path)
     conn.close()
-    cfg = Config()
-    cfg.db_path = db_path
+    cfg = _test_config(db_path)
     api = QueryAPI(config=cfg, db_path=db_path)
     api.import_session(sample_payload)
     app = create_app(config=cfg, db_path=db_path)
