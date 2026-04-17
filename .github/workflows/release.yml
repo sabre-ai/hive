@@ -26,10 +26,6 @@ jobs:
             target: aarch64-apple-darwin
             features: t5-quantized,progress,metal
             artifact: hive-search-darwin-arm64
-          - os: macos-13          # Intel Mac
-            target: x86_64-apple-darwin
-            features: t5-quantized,progress
-            artifact: hive-search-darwin-x64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             features: t5-quantized,progress
@@ -103,7 +99,6 @@ jobs:
           draft: ${{ github.event_name == 'workflow_dispatch' && inputs.tag == '' }}
           files: |
             dist/hive-search-darwin-arm64/hive-search-darwin-arm64
-            dist/hive-search-darwin-x64/hive-search-darwin-x64
             dist/hive-search-linux-x64/hive-search-linux-x64
 
   # ── Publish Python package to PyPI ──────────────────────────────────
