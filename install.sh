@@ -2,12 +2,11 @@
 set -euo pipefail
 
 REPO="sabre-ai/hive"
-HIVE_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hive"
-DATA_DIR="$HIVE_INSTALL_DIR"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/hive"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hive"
 BIN_DIR="${HOME}/.local/bin"
 BINARY="$BIN_DIR/hive-search"
-ASSETS_DIR="$HIVE_INSTALL_DIR/assets"
+ASSETS_DIR="$DATA_DIR/assets"
 PLIST_LABEL="com.sabre-ai.hive-search"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
 
@@ -19,8 +18,8 @@ fail()  { printf "\033[1;31m  ✗\033[0m %s\n" "$*"; exit 1; }
 # ── Prerequisites ───────────────────────────────────────────────────
 
 info "Checking prerequisites..."
-command -v uv    >/dev/null 2>&1 || fail "uv not found. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
-command -v curl  >/dev/null 2>&1 || fail "curl not found"
+command -v uv   >/dev/null 2>&1 || fail "uv not found. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+command -v curl >/dev/null 2>&1 || fail "curl not found"
 ok "Prerequisites found"
 
 # ── Detect platform ────────────────────────────────────────────────
@@ -29,71 +28,57 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 case "$OS-$ARCH" in
-    Darwin-arm64)  ARTIFACT="hive-search-darwin-arm64" ;;
-    Darwin-x86_64) ARTIFACT="hive-search-darwin-x64"   ;;
-    Linux-x86_64)  ARTIFACT="hive-search-linux-x64"    ;;
+    Darwin-arm64) ARTIFACT="hive-search-darwin-arm64" ;;
+    Linux-x86_64) ARTIFACT="hive-search-linux-x64"    ;;
     *) fail "Unsupported platform: $OS-$ARCH" ;;
 esac
-ok "Platform: $OS $ARCH ($ARTIFACT)"
+ok "Platform: $OS $ARCH"
 
-# ── Clone or update repo ──────────────────────────────────────────
+# ── Fetch latest release info ──────────────────────────────────────
 
-REPO_DIR="$HIVE_INSTALL_DIR/repo"
+info "Finding latest release..."
+RELEASE_URL="https://api.github.com/repos/$REPO/releases/latest"
+RELEASE_JSON=$(curl -sfL "$RELEASE_URL") || fail "Could not fetch release info. Check https://github.com/$REPO/releases"
 
-if [ -d "$REPO_DIR/.git" ]; then
-    info "Updating hive repo..."
-    git -C "$REPO_DIR" pull --ff-only 2>/dev/null || true
-    ok "Repo updated"
-else
-    info "Cloning hive repo..."
-    mkdir -p "$HIVE_INSTALL_DIR"
-    git clone "https://github.com/$REPO.git" "$REPO_DIR"
-    ok "Cloned to $REPO_DIR"
-fi
+# Extract download URLs
+BINARY_URL=$(echo "$RELEASE_JSON" | grep -o "\"browser_download_url\": *\"[^\"]*$ARTIFACT\"" | head -1 | cut -d'"' -f4)
+WHEEL_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*\.whl"' | head -1 | cut -d'"' -f4)
 
-# ── Install Python package ─────────────────────────────────────────
+[ -n "$BINARY_URL" ] || fail "No $ARTIFACT found in latest release"
+[ -n "$WHEEL_URL" ]   || fail "No .whl found in latest release"
+ok "Found release artifacts"
+
+# ── Download and install hive-search binary ────────────────────────
+
+info "Installing hive-search binary..."
+mkdir -p "$BIN_DIR"
+curl -sfL -o "$BINARY" "$BINARY_URL" || fail "Failed to download $ARTIFACT"
+chmod +x "$BINARY"
+ok "Installed to $BINARY"
+
+# ── Download and install Python package ────────────────────────────
 
 info "Installing hive Python package..."
-cd "$REPO_DIR"
-uv sync --dev
+WHEEL_NAME=$(basename "$WHEEL_URL")
+TMP_WHEEL=$(mktemp -d)/"$WHEEL_NAME"
+curl -sfL -o "$TMP_WHEEL" "$WHEEL_URL" || fail "Failed to download $WHEEL_NAME"
+uv pip install --system "$TMP_WHEEL" || uv pip install "$TMP_WHEEL"
+rm -f "$TMP_WHEEL"
 ok "Python package installed"
 
-# ── Download hive-search binary ────────────────────────────────────
-
-if [ -f "$BINARY" ]; then
-    ok "hive-search binary already installed"
-else
-    info "Downloading hive-search binary..."
-    mkdir -p "$BIN_DIR"
-
-    # Try latest release first
-    DOWNLOAD_URL="https://github.com/$REPO/releases/latest/download/$ARTIFACT"
-    HTTP_CODE=$(curl -sL -o "$BINARY" -w "%{http_code}" "$DOWNLOAD_URL")
-
-    if [ "$HTTP_CODE" = "200" ] && [ -s "$BINARY" ]; then
-        chmod +x "$BINARY"
-        ok "Downloaded $ARTIFACT"
-    else
-        rm -f "$BINARY"
-        # Fall back to building from source if cargo is available
-        if command -v cargo >/dev/null 2>&1; then
-            warn "No pre-built binary found — building from source..."
-            cd "$REPO_DIR/hive-server"
-
-            FEATURES="t5-quantized,progress"
-            if [ "$OS" = "Darwin" ] && [ "$ARCH" = "arm64" ]; then
-                FEATURES="$FEATURES,metal"
-            fi
-
-            cargo build --release --features "$FEATURES"
-            cp "target/release/hive-search" "$BINARY"
-            chmod +x "$BINARY"
-            ok "Built from source"
-        else
-            fail "No pre-built binary and cargo not found. Either tag a release or install Rust: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+# Verify hive is available
+HIVE_BIN=$(command -v hive 2>/dev/null || true)
+if [ -z "$HIVE_BIN" ]; then
+    # Try common uv/pip locations
+    for candidate in "$HOME/.local/bin/hive" "$HOME/.local/pipx/venvs/hive-team/bin/hive"; do
+        if [ -x "$candidate" ]; then
+            HIVE_BIN="$candidate"
+            break
         fi
-    fi
+    done
 fi
+[ -n "$HIVE_BIN" ] || fail "hive CLI not found after install. Ensure ~/.local/bin is on your PATH."
+ok "hive CLI at $HIVE_BIN"
 
 # ── Model assets ────────────────────────────────────────────────────
 
@@ -107,7 +92,6 @@ else
     for candidate in \
         "${WITCHCRAFT_DIR:-}" \
         "$HOME/dev/witchcraft" \
-        "$REPO_DIR/../witchcraft" \
     ; do
         if [ -n "$candidate" ] && [ -f "$candidate/assets/xtr.gguf" ]; then
             cp "$candidate/assets"/{config.json,tokenizer.json,xtr.gguf} "$ASSETS_DIR/"
@@ -153,8 +137,7 @@ fi
 # ── hive init (DB + hooks) ─────────────────────────────────────────
 
 info "Running hive init..."
-cd "$REPO_DIR"
-uv run hive init --project "$HOME" <<< "n" 2>/dev/null || uv run hive init --project "$HOME" || true
+"$HIVE_BIN" init --project "$HOME" <<< "n" 2>/dev/null || "$HIVE_BIN" init --project "$HOME" || true
 ok "hive initialized"
 
 # ── Launch hive-search as a persistent service ─────────────────────
@@ -223,10 +206,9 @@ done
 
 if curl -sf http://localhost:3033/health >/dev/null 2>&1; then
     info "Reindexing existing sessions..."
-    cd "$REPO_DIR"
-    uv run hive reindex
+    "$HIVE_BIN" reindex
 else
-    warn "Search server not ready yet — run 'uv run hive reindex' once it starts"
+    warn "Search server not ready yet — run 'hive reindex' once it starts"
 fi
 
 # ── Done ───────────────────────────────────────────────────────────
@@ -234,7 +216,7 @@ fi
 echo ""
 info "Installation complete!"
 echo ""
-echo "  hive CLI:       cd $REPO_DIR && uv run hive search \"your query\""
+echo "  hive CLI:       hive search \"your query\""
 echo "  search server:  http://localhost:3033/health"
 echo "  logs:           $LOG_DIR/hive-search.log"
 echo "  config:         $CONFIG_FILE"

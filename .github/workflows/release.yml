@@ -65,10 +65,35 @@ jobs:
           name: ${{ matrix.artifact }}
           path: dist/${{ matrix.artifact }}
 
+  # ── Build Python wheel ──────────────────────────────────────────────
+
+  build-python:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheel
+          path: dist/*.whl
+
   # ── Create GitHub Release ───────────────────────────────────────────
 
   release:
-    needs: build-search
+    needs: [build-search, build-python]
     runs-on: ubuntu-latest
 
     steps:
@@ -99,3 +124,4 @@ jobs:
           files: |
             dist/hive-search-darwin-arm64/hive-search-darwin-arm64
             dist/hive-search-linux-x64/hive-search-linux-x64
+            dist/python-wheel/*.whl
