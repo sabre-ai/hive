@@ -670,13 +670,9 @@ def serve(port: int | None, no_search: bool):
                     f"(FTS5 fallback active).[/dim]"
                 )
         elif config.search_backend == "sqlite-vec":
-            console.print(
-                "[dim]Using sqlite-vec search (in-process, no server needed).[/dim]"
-            )
+            console.print("[dim]Using sqlite-vec search (in-process, no server needed).[/dim]")
         else:
-            console.print(
-                f"[dim]Search backend: {config.search_backend}[/dim]"
-            )
+            console.print(f"[dim]Search backend: {config.search_backend}[/dim]")
 
     console.print(f"[bold]Starting hive server on http://0.0.0.0:{actual_port}[/bold]")
     console.print(f"  Server DB: {config.server_db_path}")
@@ -713,9 +709,7 @@ def reindex():
     if not backend.is_available():
         console.print(f"[red]Search backend ({config.search_backend}) is not available.[/red]")
         if config.search_backend == "witchcraft":
-            console.print(
-                "Start it with: hive-search --db-path ~/.hive/search.db --assets <path>"
-            )
+            console.print("Start it with: hive-search --db-path ~/.hive/search.db --assets <path>")
         elif config.search_backend == "sqlite-vec":
             console.print("Install dependencies: pip install 'hive-team[search]'")
         return
@@ -723,9 +717,7 @@ def reindex():
     api = QueryAPI(config)
     sessions = api.list_sessions(limit=100000)
     total = len(sessions)
-    console.print(
-        f"Reindexing {total} sessions into {config.search_backend} search backend..."
-    )
+    console.print(f"Reindexing {total} sessions into {config.search_backend} search backend...")
 
     indexed = 0
     for i, session in enumerate(sessions, 1):
@@ -739,9 +731,7 @@ def reindex():
 
         metadata = build_metadata(full)
         try:
-            backend.add_document(
-                full["id"], full.get("started_at"), metadata, body, chunk_lengths
-            )
+            backend.add_document(full["id"], full.get("started_at"), metadata, body, chunk_lengths)
             indexed += 1
         except Exception as e:
             console.print(f"  [red]Failed[/red] {full['id'][:12]}: {e}")
