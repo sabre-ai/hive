@@ -1,7 +1,8 @@
 """MCP server exposing hive data to AI assistants over stdio.
 
-Reads from the hive REST server (not SQLite directly), so it works
-identically against localhost (solo mode) or a remote team server.
+In solo mode (server_url points to localhost) reads directly from the
+local SQLite store — no running server required.  In team mode proxies
+to the remote REST server over HTTP.
 """
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 from mcp.server import Server
@@ -23,10 +24,126 @@ logger = logging.getLogger(__name__)
 server = Server("hive")
 
 
-# ── REST client ────────────────────────────────────────────────────
+# ── Backend protocol ──────────────────────────────────────────────
 
 
-class ServerClient:
+class HiveBackend(Protocol):
+    """Unified interface used by the MCP handlers."""
+
+    async def search(
+        self,
+        query: str,
+        project: str | None = None,
+        author: str | None = None,
+        since: str | None = None,
+    ) -> list[dict]: ...
+
+    async def get_session(
+        self,
+        session_id: str,
+        detail: str | None = None,
+        role: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict | None: ...
+
+    async def lineage(self, file_path: str) -> list[dict]: ...
+
+    async def recent(
+        self,
+        project: str | None = None,
+        author: str | None = None,
+        n: int = 10,
+        sort_by: str | None = None,
+        min_tokens: int | None = None,
+        model: str | None = None,
+        min_correction_rate: float | None = None,
+    ) -> list[dict]: ...
+
+    async def stats(
+        self,
+        project: str | None = None,
+        since: str | None = None,
+        group_by: str | None = None,
+    ) -> dict | list[dict]: ...
+
+    async def delete_session(self, session_id: str) -> dict: ...
+
+
+# ── Local backend (solo mode) ────────────────────────────────────
+
+
+class LocalBackend:
+    """Reads directly from the local SQLite store via QueryAPI."""
+
+    def __init__(self, config: Config):
+        from hive.store.query import QueryAPI
+
+        self._api = QueryAPI(config=config)
+
+    async def search(
+        self,
+        query: str,
+        project: str | None = None,
+        author: str | None = None,
+        since: str | None = None,
+    ) -> list[dict]:
+        return self._api.search_sessions(query, project=project, author=author, since=since)
+
+    async def get_session(
+        self,
+        session_id: str,
+        detail: str | None = None,
+        role: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict | None:
+        return self._api.get_session(
+            session_id, detail=detail, role=role, msg_limit=limit, msg_offset=offset or 0
+        )
+
+    async def lineage(self, file_path: str) -> list[dict]:
+        return self._api.get_lineage(file_path)
+
+    async def recent(
+        self,
+        project: str | None = None,
+        author: str | None = None,
+        n: int = 10,
+        sort_by: str | None = None,
+        min_tokens: int | None = None,
+        model: str | None = None,
+        min_correction_rate: float | None = None,
+    ) -> list[dict]:
+        return self._api.list_sessions(
+            project=project,
+            author=author,
+            limit=n,
+            sort_by=sort_by,
+            min_tokens=min_tokens,
+            model=model,
+            min_correction_rate=min_correction_rate,
+        )
+
+    async def stats(
+        self,
+        project: str | None = None,
+        since: str | None = None,
+        group_by: str | None = None,
+    ) -> dict | list[dict]:
+        return self._api.get_stats(project=project, since=since, group_by=group_by)
+
+    async def delete_session(self, session_id: str) -> dict:
+        deleted = self._api.delete_session(session_id)
+        if deleted:
+            return {"deleted": session_id}
+        return {"error": "Session not found"}
+
+
+# ── Remote backend (team mode) ───────────────────────────────────
+
+
+class RemoteBackend:
     """Async HTTP client that wraps the hive REST API."""
 
     def __init__(self, base_url: str):
@@ -105,7 +222,7 @@ class ServerClient:
         project: str | None = None,
         since: str | None = None,
         group_by: str | None = None,
-    ) -> dict:
+    ) -> dict | list[dict]:
         params: dict[str, str] = {}
         if project:
             params["project"] = project
@@ -130,15 +247,20 @@ class ServerClient:
 
 # ── Lazy init ──────────────────────────────────────────────────────
 
-_client: ServerClient | None = None
+_backend: LocalBackend | RemoteBackend | None = None
 
 
-def _get_client() -> ServerClient:
-    global _client
-    if _client is None:
+def _get_backend() -> LocalBackend | RemoteBackend:
+    global _backend
+    if _backend is None:
         config = Config.load()
-        _client = ServerClient(config.server_url)
-    return _client
+        if config.is_solo:
+            logger.info("MCP: solo mode — reading from local store")
+            _backend = LocalBackend(config)
+        else:
+            logger.info("MCP: team mode — proxying to %s", config.server_url)
+            _backend = RemoteBackend(config.server_url)
+    return _backend
 
 
 def _json_response(data: Any) -> list[TextContent]:
@@ -282,11 +404,11 @@ async def list_tools() -> list[Tool]:
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-    client = _get_client()
+    backend = _get_backend()
 
     try:
         if name == "search":
-            results = await client.search(
+            results = await backend.search(
                 query=arguments["query"],
                 project=arguments.get("project"),
                 author=arguments.get("author"),
@@ -295,7 +417,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(results)
 
         if name == "get_session":
-            session = await client.get_session(
+            session = await backend.get_session(
                 session_id=arguments["session_id"],
                 detail=arguments.get("detail"),
                 role=arguments.get("role"),
@@ -307,12 +429,12 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(session)
 
         if name == "lineage":
-            edges = await client.lineage(arguments["file_path"])
+            edges = await backend.lineage(arguments["file_path"])
             return _json_response(edges)
 
         if name == "recent":
             n = min(arguments.get("n", 10), 100)
-            sessions = await client.recent(
+            sessions = await backend.recent(
                 project=arguments.get("project"),
                 author=arguments.get("author"),
                 n=n,
@@ -324,7 +446,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(sessions)
 
         if name == "stats":
-            stats = await client.stats(
+            stats = await backend.stats(
                 project=arguments.get("project"),
                 since=arguments.get("since"),
                 group_by=arguments.get("group_by"),
@@ -332,7 +454,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(stats)
 
         if name == "delete":
-            result = await client.delete_session(arguments["session_id"])
+            result = await backend.delete_session(arguments["session_id"])
             return _json_response(result)
 
     except httpx.ConnectError:
