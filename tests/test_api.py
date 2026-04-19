@@ -16,6 +16,8 @@ from hive.store.query import QueryAPI
 def _test_config(db_path: Path) -> Config:
     cfg = Config()
     cfg.db_path = db_path
+    # Disable semantic search in tests — use FTS5 only
+    cfg.search_backend = "witchcraft"
     cfg.search_url = "http://localhost:0"
     return cfg
 
