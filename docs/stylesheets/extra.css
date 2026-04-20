@@ -4,16 +4,20 @@
   --hive-amber: #E8A317;
   --hive-bone:  #F5F1E8;
 
+  /* Typography tokens */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
   /* Material overrides */
   --md-primary-fg-color:        var(--hive-ink);
-  --md-primary-fg-color--light: #2a2a2a;
-  --md-primary-fg-color--dark:  #111111;
+  --md-primary-fg-color--light: rgba(15,15,16,0.7);
+  --md-primary-fg-color--dark:  var(--hive-ink);
   --md-accent-fg-color:         var(--hive-amber);
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color:        #2a2a2a;
-  --md-primary-fg-color--light: #333333;
+  --md-primary-fg-color:        rgba(15,15,16,0.85);
+  --md-primary-fg-color--light: rgba(15,15,16,0.5);
   --md-primary-fg-color--dark:  var(--hive-ink);
   --md-accent-fg-color:         var(--hive-amber);
 }
@@ -22,9 +26,6 @@
 .hive-hero {
   padding: 4rem 0 3rem;
   text-align: center;
-  background:
-    radial-gradient(circle at 20% 10%, rgba(232,163,23,.10), transparent 40%),
-    radial-gradient(circle at 80% 30%, rgba(232,163,23,.07), transparent 40%);
   border-radius: 12px;
   margin-bottom: 2rem;
 }
