@@ -1,15 +1,21 @@
 :root {
-  --md-primary-fg-color:        #1a1a1a;   /* near-black chrome */
+  /* Brand tokens */
+  --hive-ink:   #0F0F10;
+  --hive-amber: #E8A317;
+  --hive-bone:  #F5F1E8;
+
+  /* Material overrides */
+  --md-primary-fg-color:        var(--hive-ink);
   --md-primary-fg-color--light: #2a2a2a;
   --md-primary-fg-color--dark:  #111111;
-  --md-accent-fg-color:         #e8a317;   /* rich amber accent */
+  --md-accent-fg-color:         var(--hive-amber);
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color:        #2a2a2a;   /* dark chrome, same vibe as light */
+  --md-primary-fg-color:        #2a2a2a;
   --md-primary-fg-color--light: #333333;
-  --md-primary-fg-color--dark:  #1a1a1a;
-  --md-accent-fg-color:         #e8a317;   /* amber accent only */
+  --md-primary-fg-color--dark:  var(--hive-ink);
+  --md-accent-fg-color:         var(--hive-amber);
 }
 
 /* Hero */
@@ -44,9 +50,9 @@
 
 /* Force amber on all buttons */
 .md-typeset .md-button--primary {
-  background-color: #e8a317;
-  border-color: #e8a317;
-  color: #1a1a1a;
+  background-color: var(--hive-amber);
+  border-color: var(--hive-amber);
+  color: var(--hive-ink);
 }
 
 .md-typeset .md-button--primary:hover {
@@ -55,13 +61,13 @@
 }
 
 .md-typeset .md-button:not(.md-button--primary) {
-  border-color: #e8a317;
-  color: #e8a317;
+  border-color: var(--hive-amber);
+  color: var(--hive-amber);
 }
 
 .md-typeset .md-button:not(.md-button--primary):hover {
-  background-color: #e8a317;
-  color: #1a1a1a;
+  background-color: var(--hive-amber);
+  color: var(--hive-ink);
 }
 
 /* Nicer grid cards */
