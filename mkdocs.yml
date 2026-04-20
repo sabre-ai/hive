@@ -1,0 +1,169 @@
+site_name: hive
+site_url: https://sabre-ai.github.io/hive/
+site_description: Team server for Claude Code. Capture, enrich, and share AI coding sessions.
+site_author: sabre-ai
+repo_url: https://github.com/sabre-ai/hive
+repo_name: sabre-ai/hive
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 sabre-ai
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  language: en
+  logo: assets/logo.svg
+  favicon: assets/favicon.png
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search:
+      separator: '[\s\-\.\_]+'
+  - glightbox
+  - git-revision-date-localized:
+      enable_creation_date: true
+      fallback_to_build_date: true
+      enable_git_follow: false
+      strict: false
+      type: date
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      check_paths: false
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/sabre-ai/hive
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/hive-team/
+  version:
+    provider: mike
+    default: latest
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Overview: getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+    - Your First Session: getting-started/first-session.md
+  - Solo Mode:
+    - Overview: solo-mode/index.md
+    - Daily Workflow: solo-mode/workflow.md
+    - Searching Your History: solo-mode/searching-your-history.md
+    - Asking Claude About Your Work: solo-mode/asking-claude.md
+  - Team Mode:
+    - Overview: team-mode/index.md
+    - Setting Up the Team Server: team-mode/server-setup.md
+    - Onboarding Teammates: team-mode/onboarding-teammates.md
+    - Sharing Controls: team-mode/sharing-controls.md
+    - Secret Scrubbing: team-mode/secret-scrubbing.md
+  - Tutorials:
+    - Overview: tutorials/index.md
+    - File Lineage: tutorials/file-lineage.md
+    - Annotating Sessions: tutorials/annotating-sessions.md
+    - Writing a Custom Enricher: tutorials/custom-enricher.md
+    - Writing a Custom Adapter: tutorials/custom-adapter.md
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Capture Layer: architecture/capture.md
+    - Enrich Layer: architecture/enrich.md
+    - Store Layer: architecture/store.md
+    - Serve Layer: architecture/serve.md
+    - Data Model: architecture/data-model.md
+    - Design Decisions: architecture/design-decisions.md
+  - Reference:
+    - Overview: reference/index.md
+    - CLI: reference/cli.md
+    - MCP Tools: reference/mcp-tools.md
+    - REST API: reference/rest-api.md
+    - Hooks: reference/hooks.md
+    - Enrichers: reference/enrichers.md
+    - Configuration: reference/configuration.md
+  - Operations:
+    - Overview: operations/index.md
+    - Deploying: operations/deploying.md
+    - Backup & Restore: operations/backup-restore.md
+    - Monitoring: operations/monitoring.md
+    - Troubleshooting: operations/troubleshooting.md
+  - Security & Privacy: security.md
+  - Contributing: contributing.md
+  - Roadmap: roadmap.md
+  - Changelog: changelog.md

@@ -1,5 +1,7 @@
 # hive
 
+> **Full documentation:** [sabre-ai.github.io/hive](https://sabre-ai.github.io/hive/)
+
 Team server for Claude Code. Captures AI coding sessions from every developer's machine, pushes them to a shared server, and makes the team's collective history available to every user's Claude via MCP.
 
 ## Quick Start

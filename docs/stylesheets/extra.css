@@ -1,0 +1,59 @@
+:root {
+  --md-primary-fg-color:        #c88300;   /* amber-honey */
+  --md-primary-fg-color--light: #f0a71a;
+  --md-primary-fg-color--dark:  #8a5a00;
+  --md-accent-fg-color:         #f0a71a;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #f0a71a;
+  --md-primary-fg-color--light: #ffc04d;
+  --md-primary-fg-color--dark:  #c88300;
+  --md-accent-fg-color:         #ffc04d;
+}
+
+/* Hero */
+.hive-hero {
+  padding: 4rem 0 3rem;
+  text-align: center;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(240,167,26,.15), transparent 40%),
+    radial-gradient(circle at 80% 30%, rgba(200,131,0,.12), transparent 40%);
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.hive-hero h1 {
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1.15;
+  max-width: 22ch;
+  margin: 0 auto 1rem;
+}
+
+.hive-hero p {
+  max-width: 60ch;
+  margin: 0 auto 2rem;
+  font-size: 1.1rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.hive-hero .md-button {
+  margin: 0 .25rem;
+}
+
+/* Nicer grid cards */
+.md-typeset .grid.cards > ul > li {
+  border-radius: 10px;
+  transition: transform .15s ease, border-color .15s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  transform: translateY(-2px);
+  border-color: var(--md-accent-fg-color);
+}
+
+/* Mermaid diagrams — darker background in light mode */
+.mermaid {
+  text-align: center;
+}
