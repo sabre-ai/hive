@@ -1,15 +1,15 @@
 :root {
-  --md-primary-fg-color:        #c88300;   /* amber-honey */
-  --md-primary-fg-color--light: #f0a71a;
-  --md-primary-fg-color--dark:  #8a5a00;
-  --md-accent-fg-color:         #f0a71a;
+  --md-primary-fg-color:        #1a1a1a;   /* near-black chrome */
+  --md-primary-fg-color--light: #2a2a2a;
+  --md-primary-fg-color--dark:  #111111;
+  --md-accent-fg-color:         #e8a317;   /* rich amber accent */
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color:        #f0a71a;
-  --md-primary-fg-color--light: #ffc04d;
-  --md-primary-fg-color--dark:  #c88300;
-  --md-accent-fg-color:         #ffc04d;
+  --md-primary-fg-color:        #2a2a2a;   /* dark chrome, same vibe as light */
+  --md-primary-fg-color--light: #333333;
+  --md-primary-fg-color--dark:  #1a1a1a;
+  --md-accent-fg-color:         #e8a317;   /* amber accent only */
 }
 
 /* Hero */
@@ -17,8 +17,8 @@
   padding: 4rem 0 3rem;
   text-align: center;
   background:
-    radial-gradient(circle at 20% 10%, rgba(240,167,26,.15), transparent 40%),
-    radial-gradient(circle at 80% 30%, rgba(200,131,0,.12), transparent 40%);
+    radial-gradient(circle at 20% 10%, rgba(232,163,23,.10), transparent 40%),
+    radial-gradient(circle at 80% 30%, rgba(232,163,23,.07), transparent 40%);
   border-radius: 12px;
   margin-bottom: 2rem;
 }
@@ -40,6 +40,28 @@
 
 .hive-hero .md-button {
   margin: 0 .25rem;
+}
+
+/* Force amber on all buttons */
+.md-typeset .md-button--primary {
+  background-color: #e8a317;
+  border-color: #e8a317;
+  color: #1a1a1a;
+}
+
+.md-typeset .md-button--primary:hover {
+  background-color: #c88a00;
+  border-color: #c88a00;
+}
+
+.md-typeset .md-button:not(.md-button--primary) {
+  border-color: #e8a317;
+  color: #e8a317;
+}
+
+.md-typeset .md-button:not(.md-button--primary):hover {
+  background-color: #e8a317;
+  color: #1a1a1a;
 }
 
 /* Nicer grid cards */
