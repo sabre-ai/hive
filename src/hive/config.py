@@ -123,14 +123,6 @@ class Config:
         host = urlparse(self.server_url).hostname or ""
         return host in ("localhost", "127.0.0.1", "::1")
 
-    @property
-    def is_solo(self) -> bool:
-        """True when server_url points to localhost (solo mode)."""
-        from urllib.parse import urlparse
-
-        host = urlparse(self.server_url).hostname or ""
-        return host in ("localhost", "127.0.0.1", "::1")
-
     @classmethod
     def load(cls) -> Config:
         config = cls()
