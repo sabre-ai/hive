@@ -29,6 +29,7 @@ server_port = 3000
 | `server_url` | `http://localhost:3000` | Points to the team server. Localhost means solo mode. |
 | `server_port` | `3000` | Port for `hive serve` to listen on. |
 | `db_path` | `~/.local/share/hive/store.db` | Path to the local SQLite database. |
+| `db_url` | `None` | SQLAlchemy database URL (overrides `db_path`). For future PostgreSQL/MySQL support. |
 | `watch_path` | `~/.claude/projects/` | Where Claude Code stores session JSONL files. |
 
 ## Solo vs Team Mode

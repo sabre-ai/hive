@@ -19,19 +19,23 @@ session = api.get_session("abc-123", detail="messages")
 lineage = api.get_lineage("/src/auth.py", id_type="file")
 ```
 
-## SQLite Configuration
+## SQLAlchemy + Alembic
 
-Every connection is configured with:
+The store layer uses **SQLAlchemy 2.0** for all database access and **Alembic** for schema migrations.
+
+- ORM models are defined in `src/hive/store/models.py`
+- Migrations live in `src/hive/store/alembic/`
+- `init_db()` runs `alembic upgrade head` to apply migrations automatically
+- Existing pre-migration databases are auto-detected and stamped without re-running DDL
+
+Every SQLite connection is configured with:
 
 - **WAL mode** (`PRAGMA journal_mode=WAL`) -- enables concurrent readers with a single writer
 - **Foreign keys** (`PRAGMA foreign_keys=ON`) -- enforces referential integrity
 
-```python
-conn = sqlite3.connect(str(path))
-conn.row_factory = sqlite3.Row
-conn.execute("PRAGMA journal_mode=WAL")
-conn.execute("PRAGMA foreign_keys=ON")
-```
+These PRAGMAs are set via a SQLAlchemy `connect` event listener in `src/hive/store/db.py`.
+
+The `db_url` config field allows connecting to databases other than SQLite (e.g., PostgreSQL) for future use.
 
 ## Two Databases, Same Schema
 
@@ -40,7 +44,7 @@ conn.execute("PRAGMA foreign_keys=ON")
 | `store.db` | `~/.local/share/hive/store.db` | Local client store -- captures from your machine |
 | `server.db` | `~/.local/share/hive/server.db` | Team server store -- receives pushed sessions from all team members |
 
-Both use the identical schema defined in `src/hive/store/db.py`. The server database is only used when running `hive serve`.
+Both use the identical schema defined in `src/hive/store/models.py` and managed by Alembic migrations. The server database is only used when running `hive serve`.
 
 ## Schema
 

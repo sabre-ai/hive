@@ -25,11 +25,10 @@ pipx install hive-team
     ```bash
     cd your-project
     hive init
-    hive serve
     ```
 
     Sessions are captured automatically as you use Claude Code. Ask Claude anything
-    about your session history -- it reads from hive via MCP.
+    about your session history -- it reads from hive via MCP (directly from local SQLite).
 
 === "Team Mode"
 
@@ -48,7 +47,7 @@ pipx install hive-team
     hive config sharing on
     ```
 
-    Set the server URL in `~/.config/hive/config.toml`:
+    Set the server URL in your global config (`~/.config/hive/config.toml`):
 
     ```toml
     server_url = "http://team-server:3000"
@@ -93,12 +92,13 @@ hive stats          # aggregated metrics
 
 Running `hive init` in a project directory will:
 
-1. Create `~/.local/share/hive/` directory and SQLite database
-2. Install Claude Code hooks into `.claude/settings.json`
-3. Install a git `post-commit` hook (in git repos)
-4. Ask whether to enable sharing to the team server
-5. Backfill existing Claude Code session transcripts
-6. Configure MCP server in Claude Code
+1. Create `~/.local/share/hive/` directory and SQLite database (with Alembic migrations)
+2. Create `~/.config/hive/config.toml` if it doesn't exist
+3. Install Claude Code hooks into `.claude/settings.json`
+4. Install a git `post-commit` hook (in git repos)
+5. Ask whether to enable sharing to the team server
+6. Backfill existing Claude Code session transcripts
+7. Print the command to register the MCP server with Claude Code
 
 !!! warning "Prerequisites"
     Python 3.11+ is required. For semantic search, you also need `uv` and

@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from hive.config import HIVE_DIR, Config
+from hive.config import Config
 from hive.store.db import init_db
 from hive.store.query import QueryAPI
 
@@ -42,8 +42,11 @@ def init(project: str):
     console.print("[green]✓[/green]")
 
     # 2. Create default config if missing
-    config_path = HIVE_DIR / "config.toml"
+    from hive.config import HIVE_CONFIG_DIR
+
+    config_path = HIVE_CONFIG_DIR / "config.toml"
     if not config_path.exists():
+        HIVE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         config_path.write_text(
             '# hive configuration\n# watch_path = "~/.claude/projects/"\n# server_port = 3000\n'
         )
