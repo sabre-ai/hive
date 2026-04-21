@@ -10,7 +10,7 @@ hide:
 
 Hive captures every Claude Code session from every developer, enriches each one with git and file context, and makes the team's collective history available through MCP — so Claude can answer *"how did we solve this last time?"*
 
-[Get started :material-arrow-right:](getting-started/quickstart.md){ .md-button .md-button--primary }
+[Get started :material-arrow-right:](getting-started/index.md){ .md-button .md-button--primary }
 [View on GitHub :fontawesome-brands-github:](https://github.com/sabre-ai/hive){ .md-button }
 
 </div>
@@ -66,7 +66,7 @@ Hive captures every Claude Code session from every developer, enriches each one 
     claude mcp add --scope user --transport stdio hive -- hive mcp
     ```
 
-    See [Server Setup](usage/server-setup.md) for the server side.
+    See [Getting Started](getting-started/index.md#stage-3-team-server) for the server side.
 
 ## How it works
 
