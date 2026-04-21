@@ -120,6 +120,18 @@ class QueryAPI:
 
     # ── Full-text search ────────────────────────────────────────────
 
+    def _get_search_backend(self):
+        """Return the configured search backend, or None if unavailable."""
+        if not hasattr(self, "_search_backend"):
+            try:
+                from hive.search import get_search_backend
+
+                backend = get_search_backend(self.config)
+                self._search_backend = backend if backend.is_available() else None
+            except Exception:
+                self._search_backend = None
+        return self._search_backend
+
     def search_sessions(
         self,
         query: str,
@@ -129,21 +141,19 @@ class QueryAPI:
         until: str | None = None,
         limit: int = 20,
     ) -> list[dict[str, Any]]:
-        """Search sessions via witchcraft semantic search, falling back to FTS5."""
+        """Search sessions via the configured semantic backend, falling back to FTS5."""
         try:
-            from hive.search import SearchClient
-
-            client = SearchClient(self.config.search_url)
-            if client.is_available():
-                return self._search_witchcraft(client, query, project, author, since, until, limit)
+            backend = self._get_search_backend()
+            if backend is not None:
+                return self._search_semantic(backend, query, project, author, since, until, limit)
         except Exception:
             pass
 
         return self._search_fts5(query, project, author, since, until, limit)
 
-    def _search_witchcraft(
+    def _search_semantic(
         self,
-        client: Any,
+        backend: Any,
         query: str,
         project: str | None,
         author: str | None,
@@ -151,8 +161,8 @@ class QueryAPI:
         until: str | None,
         limit: int,
     ) -> list[dict[str, Any]]:
-        """Search via the witchcraft backend and join with hive metadata."""
-        results = client.search(
+        """Search via the semantic backend and join with hive metadata."""
+        results = backend.search(
             query, project=project, author=author, since=since, until=until, limit=limit
         )
         if not results:
@@ -682,13 +692,11 @@ class QueryAPI:
         conn.commit()
         conn.close()
 
-        # Remove from witchcraft search backend
+        # Remove from search backend
         try:
-            from hive.search import SearchClient
-
-            client = SearchClient(self.config.search_url)
-            if client.is_available():
-                client.remove_document(session_id)
+            backend = self._get_search_backend()
+            if backend is not None:
+                backend.remove_document(session_id)
         except Exception:
             pass
 
@@ -803,12 +811,12 @@ class QueryAPI:
         conn.commit()
         conn.close()
 
-        # Index in witchcraft search backend
+        # Index in search backend
         try:
-            from hive.search import SearchClient, build_metadata, build_search_body
+            from hive.search import build_metadata, build_search_body
 
-            client = SearchClient(self.config.search_url)
-            if client.is_available():
+            backend = self._get_search_backend()
+            if backend is not None:
                 messages_for_search = [
                     {"role": m.get("role", "human"), "content": m.get("content", "")}
                     for m in payload.get("messages", [])
@@ -817,9 +825,9 @@ class QueryAPI:
                 body, chunk_lengths = build_search_body(messages_for_search)
                 if body:
                     metadata = build_metadata(payload)
-                    client.add_document(
+                    backend.add_document(
                         session_id, payload.get("started_at"), metadata, body, chunk_lengths
                     )
-                    client.trigger_index(limit=1)
+                    backend.trigger_index(limit=1)
         except Exception:
             pass

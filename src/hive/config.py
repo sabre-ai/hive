@@ -108,9 +108,20 @@ class Config:
     server_port: int = 3000
     link_window_minutes: int = 30
     scrub_patterns: list[str] = field(default_factory=list)
+    search_backend: str = "sqlite-vec"
     search_url: str = "http://localhost:3033"
     search_binary: str = "hive-search"
     search_assets_path: Path | None = None
+    search_vec_db_path: Path = field(default_factory=lambda: HIVE_DATA_DIR / "search_vec.db")
+    search_embedding_model: str = "all-MiniLM-L6-v2"
+
+    @property
+    def is_solo(self) -> bool:
+        """True when server_url points to localhost (solo mode)."""
+        from urllib.parse import urlparse
+
+        host = urlparse(self.server_url).hostname or ""
+        return host in ("localhost", "127.0.0.1", "::1")
 
     @classmethod
     def load(cls) -> Config:
@@ -135,12 +146,18 @@ class Config:
 
             # [search] section
             search = user_data.get("search", {})
+            if "backend" in search:
+                config.search_backend = search["backend"]
             if "url" in search:
                 config.search_url = search["url"]
             if "binary" in search:
                 config.search_binary = search["binary"]
             if "assets_path" in search:
                 config.search_assets_path = Path(search["assets_path"])
+            if "vec_db_path" in search:
+                config.search_vec_db_path = Path(search["vec_db_path"])
+            if "embedding_model" in search:
+                config.search_embedding_model = search["embedding_model"]
 
         # Load scrub patterns from default file + user overrides
         config.scrub_patterns = _load_scrub_patterns(user_data)

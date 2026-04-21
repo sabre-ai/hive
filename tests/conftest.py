@@ -26,7 +26,8 @@ def config(tmp_db: Path) -> Config:
     """Return a Config whose db_path points at the temporary database."""
     cfg = Config()
     cfg.db_path = tmp_db
-    # Disable witchcraft search backend in tests so a running server doesn't interfere
+    # Disable semantic search in tests — use FTS5 only
+    cfg.search_backend = "witchcraft"
     cfg.search_url = "http://localhost:0"
     return cfg
 

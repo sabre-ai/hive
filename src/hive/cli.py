@@ -611,7 +611,7 @@ def push(project: str | None, since: str | None, dry_run: bool):
 
 @cli.command()
 @click.option("--port", default=None, type=int, help="Port (default from config or 3000)")
-@click.option("--no-search", is_flag=True, help="Disable witchcraft search backend")
+@click.option("--no-search", is_flag=True, help="Disable semantic search backend")
 def serve(port: int | None, no_search: bool):
     """Start the team server."""
     import shutil
@@ -630,42 +630,49 @@ def serve(port: int | None, no_search: bool):
     # Initialize server database
     init_db(config, db_path=config.server_db_path)
 
-    # Start witchcraft search backend if available
+    # Start search backend if needed
     search_proc = None
-    if not no_search and config.search_assets_path:
-        binary = shutil.which(config.search_binary)
-        if binary:
-            db_path = str(config.db_path).replace("store.db", "search.db")
-            cmd = [
-                binary,
-                "--db-path",
-                db_path,
-                "--assets",
-                str(config.search_assets_path),
-                "--port",
-                str(config.search_url.rsplit(":", 1)[-1]),
-            ]
-            console.print(f"[dim]Starting search backend: {config.search_binary}[/dim]")
-            search_proc = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
-            # Wait for search backend to be ready
-            from hive.search import SearchClient
+    if not no_search:
+        if config.search_backend == "witchcraft" and config.search_assets_path:
+            binary = shutil.which(config.search_binary)
+            if binary:
+                db_path = str(config.db_path).replace("store.db", "search.db")
+                cmd = [
+                    binary,
+                    "--db-path",
+                    db_path,
+                    "--assets",
+                    str(config.search_assets_path),
+                    "--port",
+                    str(config.search_url.rsplit(":", 1)[-1]),
+                ]
+                console.print(f"[dim]Starting search backend: {config.search_binary}[/dim]")
+                search_proc = subprocess.Popen(
+                    cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                # Wait for search backend to be ready
+                from hive.search import SearchClient
 
-            client = SearchClient(config.search_url)
-            for _ in range(60):  # up to 30s
-                if client.is_available():
-                    console.print("[green]Search backend ready.[/green]")
-                    break
-                time.sleep(0.5)
+                client = SearchClient(config.search_url)
+                for _ in range(60):  # up to 30s
+                    if client.is_available():
+                        console.print("[green]Search backend ready.[/green]")
+                        break
+                    time.sleep(0.5)
+                else:
+                    console.print(
+                        "[yellow]Search backend did not start in time "
+                        "(continuing without it).[/yellow]"
+                    )
             else:
                 console.print(
-                    "[yellow]Search backend did not start in time (continuing without it).[/yellow]"
+                    f"[dim]Search binary '{config.search_binary}' not found "
+                    f"(FTS5 fallback active).[/dim]"
                 )
+        elif config.search_backend == "sqlite-vec":
+            console.print("[dim]Using sqlite-vec search (in-process, no server needed).[/dim]")
         else:
-            console.print(
-                f"[dim]Search binary '{config.search_binary}' not found (FTS5 fallback active).[/dim]"
-            )
+            console.print(f"[dim]Search backend: {config.search_backend}[/dim]")
 
     console.print(f"[bold]Starting hive server on http://0.0.0.0:{actual_port}[/bold]")
     console.print(f"  Server DB: {config.server_db_path}")
@@ -692,22 +699,25 @@ def serve(port: int | None, no_search: bool):
 
 @cli.command()
 def reindex():
-    """Rebuild the witchcraft search index from all stored sessions."""
-    from hive.search import SearchClient, build_metadata, build_search_body
+    """Rebuild the search index from all stored sessions."""
+    from hive.search import build_metadata, build_search_body, get_search_backend
     from hive.store.query import QueryAPI
 
     config = Config.load()
-    client = SearchClient(config.search_url)
+    backend = get_search_backend(config)
 
-    if not client.is_available():
-        console.print("[red]Search backend is not running.[/red]")
-        console.print("Start it with: hive-search --db-path ~/.hive/search.db --assets <path>")
+    if not backend.is_available():
+        console.print(f"[red]Search backend ({config.search_backend}) is not available.[/red]")
+        if config.search_backend == "witchcraft":
+            console.print("Start it with: hive-search --db-path ~/.hive/search.db --assets <path>")
+        elif config.search_backend == "sqlite-vec":
+            console.print("Install dependencies: pip install 'hive-team[search]'")
         return
 
     api = QueryAPI(config)
     sessions = api.list_sessions(limit=100000)
     total = len(sessions)
-    console.print(f"Reindexing {total} sessions into witchcraft search backend...")
+    console.print(f"Reindexing {total} sessions into {config.search_backend} search backend...")
 
     indexed = 0
     for i, session in enumerate(sessions, 1):
@@ -721,7 +731,7 @@ def reindex():
 
         metadata = build_metadata(full)
         try:
-            client.add_document(full["id"], full.get("started_at"), metadata, body, chunk_lengths)
+            backend.add_document(full["id"], full.get("started_at"), metadata, body, chunk_lengths)
             indexed += 1
         except Exception as e:
             console.print(f"  [red]Failed[/red] {full['id'][:12]}: {e}")
@@ -732,7 +742,7 @@ def reindex():
     # Trigger embedding and indexing for all new documents
     console.print("Triggering embedding and indexing...")
     try:
-        result = client.trigger_index()
+        result = backend.trigger_index()
         console.print(
             f"[green]Done.[/green] Indexed {indexed} sessions, "
             f"embedded {result.get('embedded', 0)} chunks."

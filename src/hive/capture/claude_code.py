@@ -227,12 +227,12 @@ class ClaudeCodeAdapter(CaptureAdapter):
         messages: list[dict[str, Any]],
         summary: str | None,
     ) -> None:
-        """Push session into the witchcraft search backend (best-effort)."""
+        """Push session into the search backend (best-effort)."""
         try:
-            from hive.search import SearchClient, build_metadata, build_search_body
+            from hive.search import build_metadata, build_search_body, get_search_backend
 
-            client = SearchClient(self._config.search_url)
-            if not client.is_available():
+            backend = get_search_backend(self._config)
+            if not backend.is_available():
                 return
 
             body, chunk_lengths = build_search_body(messages)
@@ -248,12 +248,11 @@ class ClaudeCodeAdapter(CaptureAdapter):
                 "summary": summary or "",
             }
             metadata = build_metadata(session)
-            client.add_document(
+            backend.add_document(
                 session_id, session.get("started_at"), metadata, body, chunk_lengths
             )
-            # Don't trigger_index here — it runs T5 inference synchronously.
-            # Witchcraft searches unindexed docs automatically; periodic
-            # indexing (via `hive reindex` or the server) handles the rest.
+            # Don't trigger_index here — embedding can be expensive.
+            # Periodic indexing (via `hive reindex`) handles the rest.
         except Exception:
             logger.debug("Search backend indexing failed for session %s", session_id)
 
