@@ -49,6 +49,8 @@ class HiveBackend(Protocol):
 
     async def lineage(self, file_path: str) -> list[dict]: ...
 
+    async def session_lineage(self, session_id: str) -> list[dict]: ...
+
     async def recent(
         self,
         project: str | None = None,
@@ -104,6 +106,9 @@ class LocalBackend:
 
     async def lineage(self, file_path: str) -> list[dict]:
         return self._api.get_lineage(file_path)
+
+    async def session_lineage(self, session_id: str) -> list[dict]:
+        return self._api.get_lineage(session_id, id_type="session")
 
     async def recent(
         self,
@@ -191,6 +196,9 @@ class RemoteBackend:
 
     async def lineage(self, file_path: str) -> list[dict]:
         return await self._get(f"/api/lineage/{file_path}")
+
+    async def session_lineage(self, session_id: str) -> list[dict]:
+        return await self._get(f"/api/lineage/session/{session_id}")
 
     async def recent(
         self,
@@ -320,8 +328,8 @@ TOOLS: list[Tool] = [
     Tool(
         name="lineage",
         description=(
-            "Return the lineage graph for a file — every session that read "
-            "or modified it, along with related commits."
+            "Return the lineage graph for a file or session. For files: every session "
+            "that read or modified it. For sessions: linked sessions, files, and commits."
         ),
         inputSchema={
             "type": "object",
@@ -330,8 +338,11 @@ TOOLS: list[Tool] = [
                     "type": "string",
                     "description": "Absolute or project-relative file path.",
                 },
+                "session_id": {
+                    "type": "string",
+                    "description": "Session ID to get lineage for (alternative to file_path).",
+                },
             },
-            "required": ["file_path"],
         },
     ),
     Tool(
@@ -391,6 +402,74 @@ TOOLS: list[Tool] = [
             "required": ["session_id"],
         },
     ),
+    Tool(
+        name="capture_session",
+        description=(
+            "Save the current conversation to hive. Call this when the user asks "
+            "to save, capture, or preserve a design discussion, brainstorm, or any "
+            "conversation worth keeping for future reference."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Brief title for this session."},
+                "content": {
+                    "type": "string",
+                    "description": "The conversation content to save.",
+                },
+                "project": {"type": "string", "description": "Project path this relates to."},
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Tags to categorize this session.",
+                },
+            },
+            "required": ["title", "content"],
+        },
+    ),
+    Tool(
+        name="link_sessions",
+        description=(
+            "Create a lineage link between two sessions. Use this when you reference "
+            "or build upon work from another session — especially when implementing a "
+            "design from a claude_desktop session, or continuing work from a prior session."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "source_session_id": {
+                    "type": "string",
+                    "description": "The session being referenced (e.g. the design session).",
+                },
+                "target_session_id": {
+                    "type": "string",
+                    "description": "The session doing the referencing (e.g. the implementation session).",
+                },
+                "relationship": {
+                    "type": "string",
+                    "enum": ["implements", "continues", "references", "refines"],
+                    "description": "How the sessions relate.",
+                },
+            },
+            "required": ["source_session_id", "target_session_id", "relationship"],
+        },
+    ),
+    Tool(
+        name="current_session",
+        description=(
+            "Return the most recent hive session for the current project. "
+            "Useful for getting the current session ID when creating links."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "Project path (defaults to current working directory).",
+                },
+            },
+        },
+    ),
 ]
 
 
@@ -429,7 +508,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(session)
 
         if name == "lineage":
-            edges = await backend.lineage(arguments["file_path"])
+            if "session_id" in arguments:
+                edges = await backend.session_lineage(arguments["session_id"])
+            else:
+                edges = await backend.lineage(arguments["file_path"])
             return _json_response(edges)
 
         if name == "recent":
@@ -456,6 +538,57 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if name == "delete":
             result = await backend.delete_session(arguments["session_id"])
             return _json_response(result)
+
+        if name == "capture_session":
+            from hive.capture.claude_desktop import ClaudeDesktopAdapter
+
+            adapter = ClaudeDesktopAdapter()
+            session_id = adapter._ingest(
+                {
+                    "title": arguments["title"],
+                    "content": arguments["content"],
+                    "project": arguments.get("project"),
+                    "tags": arguments.get("tags", []),
+                }
+            )
+            return _json_response({"session_id": session_id, "status": "captured"})
+
+        if name == "link_sessions":
+            from hive.store.query import QueryAPI
+
+            api = QueryAPI()
+            api.insert_edge(
+                "session",
+                arguments["source_session_id"],
+                "session",
+                arguments["target_session_id"],
+                arguments["relationship"],
+            )
+            return _json_response(
+                {
+                    "linked": True,
+                    "source_session_id": arguments["source_session_id"],
+                    "target_session_id": arguments["target_session_id"],
+                    "relationship": arguments["relationship"],
+                }
+            )
+
+        if name == "current_session":
+            sessions = await backend.recent(
+                project=arguments.get("project"),
+                n=1,
+            )
+            if sessions:
+                s = sessions[0]
+                return _json_response(
+                    {
+                        "session_id": s["id"],
+                        "source": s.get("source"),
+                        "started_at": s.get("started_at"),
+                        "summary": s.get("summary"),
+                    }
+                )
+            return _json_response({"error": "No sessions found"})
 
     except httpx.ConnectError:
         return _json_response({"error": "Cannot connect to hive server. Is 'hive serve' running?"})

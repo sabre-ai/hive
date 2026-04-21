@@ -158,6 +158,10 @@ def create_app(config: Config | None = None, db_path: Path | None = None) -> Fas
             limit=limit,
         )
 
+    @app.get("/api/lineage/session/{session_id}")
+    def get_session_lineage(session_id: str) -> list[dict[str, Any]]:
+        return query.get_lineage(session_id, id_type="session")
+
     @app.get("/api/lineage/{path:path}")
     def get_lineage(path: str) -> list[dict[str, Any]]:
         return query.get_lineage(path, id_type="file")

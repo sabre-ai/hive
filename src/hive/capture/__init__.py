@@ -2,6 +2,7 @@
 
 from hive.capture.base import CaptureAdapter
 from hive.capture.claude_code import ClaudeCodeAdapter
+from hive.capture.claude_desktop import ClaudeDesktopAdapter
 from hive.capture.git_hook import GitCommitHook
 
-__all__ = ["CaptureAdapter", "ClaudeCodeAdapter", "GitCommitHook"]
+__all__ = ["CaptureAdapter", "ClaudeCodeAdapter", "ClaudeDesktopAdapter", "GitCommitHook"]
