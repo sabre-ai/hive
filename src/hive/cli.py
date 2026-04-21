@@ -101,7 +101,12 @@ def _install_claude_hooks(project_path: Path):
     console.print("  Installing Claude Code hooks...", end=" ")
 
     # Resolve the absolute path to the hive binary so hooks work outside the venv
-    hive_bin = shutil.which("hive") or sys.executable.replace("python", "hive")
+    hive_bin = shutil.which("hive")
+    if not hive_bin:
+        # Fallback: look for 'hive' next to the current Python executable
+        bin_dir = Path(sys.executable).parent
+        candidate = bin_dir / "hive"
+        hive_bin = str(candidate) if candidate.exists() else "hive"
 
     settings_dir = project_path / ".claude"
     settings_dir.mkdir(exist_ok=True)
