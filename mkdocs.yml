@@ -124,17 +124,15 @@ nav:
     - Quick Start: getting-started/quickstart.md
     - Configuration: getting-started/configuration.md
     - Your First Session: getting-started/first-session.md
-  - Solo Mode:
-    - Overview: solo-mode/index.md
-    - Daily Workflow: solo-mode/workflow.md
-    - Searching Your History: solo-mode/searching-your-history.md
-    - Asking Claude About Your Work: solo-mode/asking-claude.md
-  - Team Mode:
-    - Overview: team-mode/index.md
-    - Setting Up the Team Server: team-mode/server-setup.md
-    - Onboarding Teammates: team-mode/onboarding-teammates.md
-    - Sharing Controls: team-mode/sharing-controls.md
-    - Secret Scrubbing: team-mode/secret-scrubbing.md
+  - Usage:
+    - Overview: usage/index.md
+    - Daily Workflow: usage/workflow.md
+    - Searching Your History: usage/searching-your-history.md
+    - Asking Claude About Your Work: usage/asking-claude.md
+    - Setting Up the Team Server: usage/server-setup.md
+    - Onboarding Teammates: usage/onboarding-teammates.md
+    - Sharing Controls: usage/sharing-controls.md
+    - Secret Scrubbing: usage/secret-scrubbing.md
   - Tutorials:
     - Overview: tutorials/index.md
     - File Lineage: tutorials/file-lineage.md
@@ -157,13 +155,6 @@ nav:
     - Hooks: reference/hooks.md
     - Enrichers: reference/enrichers.md
     - Configuration: reference/configuration.md
-  - Operations:
-    - Overview: operations/index.md
-    - Deploying: operations/deploying.md
-    - Backup & Restore: operations/backup-restore.md
-    - Monitoring: operations/monitoring.md
-    - Troubleshooting: operations/troubleshooting.md
   - Security & Privacy: security.md
   - Contributing: contributing.md
-  - Roadmap: roadmap.md
   - Changelog: changelog.md

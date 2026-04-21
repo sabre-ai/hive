@@ -8,7 +8,7 @@ hive is designed as a **local-first** tool with optional team sharing. The secur
 
 - **Trusted local machine**: The developer's laptop is trusted. Local `store.db` is not encrypted at rest.
 - **Trusted network for team mode**: The MVP team server does not enforce authentication. It should run on a trusted network or behind a reverse proxy with auth.
-- **No auth in MVP**: The REST API accepts unauthenticated requests. Authentication is on the [roadmap](roadmap.md).
+- **No auth in MVP**: The REST API accepts unauthenticated requests. Authentication is planned for a future release.
 - **Secrets in transcripts**: AI coding sessions routinely contain API keys, tokens, and passwords. hive scrubs these before storage and before push.
 
 !!! warning "Team server access control"
