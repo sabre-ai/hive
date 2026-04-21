@@ -1,96 +1,86 @@
-"""SQLite database initialization and schema management."""
+"""Database initialization and connection management using SQLAlchemy + Alembic."""
 
 from __future__ import annotations
 
-import sqlite3
+import logging
 from pathlib import Path
+
+from sqlalchemy import Engine, create_engine, event
+from sqlalchemy.orm import Session, sessionmaker
 
 from hive.config import Config
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    source TEXT NOT NULL,
-    project_path TEXT,
-    author TEXT,
-    started_at DATETIME,
-    ended_at DATETIME,
-    message_count INTEGER DEFAULT 0,
-    summary TEXT
-);
+logger = logging.getLogger(__name__)
 
-CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL REFERENCES sessions(id),
-    ordinal INTEGER NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('human', 'assistant', 'tool')),
-    content TEXT,
-    tool_name TEXT,
-    timestamp DATETIME
-);
-
-CREATE TABLE IF NOT EXISTS enrichments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL REFERENCES sessions(id),
-    source TEXT NOT NULL,
-    key TEXT NOT NULL,
-    value TEXT,
-    enriched_at DATETIME DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS annotations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL REFERENCES sessions(id),
-    type TEXT NOT NULL CHECK(type IN ('tag', 'comment', 'rating')),
-    value TEXT NOT NULL,
-    author TEXT,
-    created_at DATETIME DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS edges (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_type TEXT NOT NULL,
-    source_id TEXT NOT NULL,
-    target_type TEXT NOT NULL,
-    target_id TEXT NOT NULL,
-    relationship TEXT NOT NULL,
-    created_at DATETIME DEFAULT (datetime('now'))
-);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS sessions_fts USING fts5(
-    session_id,
-    content,
-    tokenize='porter'
-);
-
-CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_enrichments_session ON enrichments(session_id);
-CREATE INDEX IF NOT EXISTS idx_enrichments_key ON enrichments(session_id, key);
-CREATE INDEX IF NOT EXISTS idx_annotations_session ON annotations(session_id);
-CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_type, source_id);
-CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_type, target_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_path);
-CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
-"""
+# Cache engines per URL to avoid creating multiple engines for the same DB
+_engines: dict[str, Engine] = {}
 
 
-def get_connection(config: Config | None = None, db_path: Path | None = None) -> sqlite3.Connection:
+def get_engine(config: Config | None = None, db_path: Path | None = None) -> Engine:
+    """Create or retrieve a cached SQLAlchemy engine."""
     if config is None:
         config = Config.load()
-    path = db_path or config.db_path
-    conn = sqlite3.connect(str(path))
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+    url = _build_url(config, db_path)
+    if url not in _engines:
+        engine = create_engine(url, echo=False)
+        # Set SQLite PRAGMAs on every new connection
+        if engine.dialect.name == "sqlite":
+
+            @event.listens_for(engine, "connect")
+            def _set_sqlite_pragmas(dbapi_conn, connection_record):
+                cursor = dbapi_conn.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
+
+        _engines[url] = engine
+    return _engines[url]
 
 
-def init_db(config: Config | None = None, db_path: Path | None = None) -> sqlite3.Connection:
+def get_session_factory(
+    config: Config | None = None, db_path: Path | None = None
+) -> sessionmaker[Session]:
+    """Return a sessionmaker bound to the engine."""
+    engine = get_engine(config, db_path)
+    return sessionmaker(bind=engine)
+
+
+def init_db(config: Config | None = None, db_path: Path | None = None) -> Engine:
+    """Run Alembic migrations to ensure the schema is current.
+
+    For fresh databases, creates all tables. For existing pre-migration databases,
+    stamps the current version without re-running DDL. Returns the engine.
+    """
     if config is None:
         config = Config.load()
     path = db_path or config.db_path
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    conn = get_connection(config, db_path=path)
-    conn.executescript(SCHEMA)
-    conn.commit()
-    return conn
+
+    url = _build_url(config, db_path)
+
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig()
+    alembic_cfg.set_main_option("script_location", str(Path(__file__).parent / "alembic"))
+    alembic_cfg.set_main_option("sqlalchemy.url", url)
+
+    command.upgrade(alembic_cfg, "head")
+    logger.debug("Database migrations applied for %s", path)
+
+    return get_engine(config, db_path)
+
+
+def reset_engines() -> None:
+    """Dispose all cached engines. Useful for testing."""
+    for engine in _engines.values():
+        engine.dispose()
+    _engines.clear()
+
+
+def _build_url(config: Config, db_path: Path | None = None) -> str:
+    """Build a SQLAlchemy connection URL from config."""
+    if config.db_url:
+        return config.db_url
+    path = db_path or config.db_path
+    return f"sqlite:///{path}"
