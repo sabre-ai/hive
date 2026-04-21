@@ -402,6 +402,11 @@ async def list_tools() -> list[Tool]:
     return TOOLS
 
 
+_VALID_SORT_BY = {"tokens", "corrections", "messages"}
+_VALID_GROUP_BY = {"project", "model", "author", "week"}
+_VALID_ROLES = {"human", "assistant", "tool"}
+
+
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     backend = _get_backend()
@@ -417,10 +422,15 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(results)
 
         if name == "get_session":
+            role = arguments.get("role")
+            if role is not None and role not in _VALID_ROLES:
+                return _json_response(
+                    {"error": f"Invalid role '{role}'. Must be one of: {sorted(_VALID_ROLES)}"}
+                )
             session = await backend.get_session(
                 session_id=arguments["session_id"],
                 detail=arguments.get("detail"),
-                role=arguments.get("role"),
+                role=role,
                 limit=arguments.get("limit"),
                 offset=arguments.get("offset"),
             )
@@ -433,12 +443,19 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(edges)
 
         if name == "recent":
-            n = min(arguments.get("n", 10), 100)
+            n = max(1, min(arguments.get("n", 10), 100))
+            sort_by = arguments.get("sort_by")
+            if sort_by is not None and sort_by not in _VALID_SORT_BY:
+                return _json_response(
+                    {
+                        "error": f"Invalid sort_by '{sort_by}'. Must be one of: {sorted(_VALID_SORT_BY)}"
+                    }
+                )
             sessions = await backend.recent(
                 project=arguments.get("project"),
                 author=arguments.get("author"),
                 n=n,
-                sort_by=arguments.get("sort_by"),
+                sort_by=sort_by,
                 min_tokens=arguments.get("min_tokens"),
                 model=arguments.get("model"),
                 min_correction_rate=arguments.get("min_correction_rate"),
@@ -446,10 +463,17 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(sessions)
 
         if name == "stats":
+            group_by = arguments.get("group_by")
+            if group_by is not None and group_by not in _VALID_GROUP_BY:
+                return _json_response(
+                    {
+                        "error": f"Invalid group_by '{group_by}'. Must be one of: {sorted(_VALID_GROUP_BY)}"
+                    }
+                )
             stats = await backend.stats(
                 project=arguments.get("project"),
                 since=arguments.get("since"),
-                group_by=arguments.get("group_by"),
+                group_by=group_by,
             )
             return _json_response(stats)
 

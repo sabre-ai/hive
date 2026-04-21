@@ -64,7 +64,10 @@ def create_app(config: Config | None = None, db_path: Path | None = None) -> Fas
         openapi_url="/api/openapi.json",
     )
 
-    # CORS — wide open for local development; tighten for production.
+    # CORS — wide open for local development.
+    # For production deployments, restrict allow_origins to your domain or
+    # place hive behind a reverse proxy that handles CORS.
+    # See docs/operations/deploying.md for recommended setups.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
