@@ -144,6 +144,6 @@ Claude uses the hive MCP tools (search, recent, lineage, stats) to pull relevant
 
 ## Next Steps
 
-- [Solo Mode Workflow](../solo-mode/workflow.md) -- day-to-day patterns for individual use
-- [Searching Your History](../solo-mode/searching-your-history.md) -- advanced search techniques
-- [Asking Claude](../solo-mode/asking-claude.md) -- getting the most out of MCP integration
+- [Daily Workflow](../usage/workflow.md) -- day-to-day patterns for using hive
+- [Searching Your History](../usage/searching-your-history.md) -- advanced search techniques
+- [Asking Claude](../usage/asking-claude.md) -- getting the most out of MCP integration
