@@ -30,7 +30,7 @@ Setting up hive...
 
 hive is ready!
   Database: ~/.local/share/hive/store.db
-  Config:   ~/.local/share/hive/config.toml
+  Config:   ~/.config/hive/config.toml
 ```
 
 !!! info "Backfilling"

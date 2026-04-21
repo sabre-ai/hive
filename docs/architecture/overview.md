@@ -119,4 +119,4 @@ Both use the same schema: `sessions`, `messages`, `enrichments`, `annotations`, 
 
 ## Tech Stack
 
-**Backend**: Python 3.11+, Click, FastAPI, SQLite (WAL mode), MCP SDK, httpx
+**Backend**: Python 3.11+, Click, FastAPI, SQLAlchemy 2.0, Alembic, SQLite (WAL mode), MCP SDK, httpx

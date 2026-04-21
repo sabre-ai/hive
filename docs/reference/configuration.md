@@ -26,6 +26,9 @@ server_port = 3000
 
 # Time window (in minutes) for linking git commits to sessions.
 link_window_minutes = 30
+
+# SQLAlchemy database URL (overrides db_path). For future PostgreSQL/MySQL support.
+# db_url = "sqlite:///~/.local/share/hive/store.db"
 ```
 
 ### Field Reference
@@ -38,6 +41,7 @@ link_window_minutes = 30
 | `server_url` | string | `http://localhost:3000` | Team server base URL (used by MCP and auto-push) |
 | `server_port` | int | `3000` | Port for `hive serve` |
 | `link_window_minutes` | int | `30` | Max age (minutes) of a session for commit linking |
+| `db_url` | string | `None` | SQLAlchemy database URL (overrides `db_path`). For future PostgreSQL/MySQL support. |
 
 ## Search Config
 
