@@ -27,20 +27,29 @@ The hive MCP server exposes session data to AI assistants over the stdio transpo
 
 === "Claude Desktop"
 
+    Install hive via pipx:
+
+    ```bash
+    pipx install hive-team
+    ```
+
     Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
     ```json
     {
       "mcpServers": {
         "hive": {
-          "command": "/path/to/hive",
-          "args": ["mcp"]
+          "command": "/Users/YOUR_USERNAME/.local/pipx/venvs/hive-team/bin/python",
+          "args": ["-m", "hive.cli", "mcp"]
         }
       }
     }
     ```
 
     Restart Claude Desktop. The same MCP server serves both Claude Code and Claude Desktop.
+
+    !!! warning "macOS sandbox"
+        Claude Desktop cannot access files in `~/Documents/`. Use `pipx install` (not editable `pip install -e`) so hive is fully installed under `~/.local/`.
 
 ## Tools
 

@@ -93,18 +93,27 @@ Hive can also capture conversations from **Claude Desktop** (the Mac/Windows app
 
 ### Setup
 
-Register hive as an MCP server in Claude Desktop by adding to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Install hive with pipx (if not already installed):
+
+```bash
+pipx install hive-team
+```
+
+Then add hive as an MCP server in Claude Desktop by editing `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "hive": {
-      "command": "/path/to/hive",
-      "args": ["mcp"]
+      "command": "/Users/YOUR_USERNAME/.local/pipx/venvs/hive-team/bin/python",
+      "args": ["-m", "hive.cli", "mcp"]
     }
   }
 }
 ```
+
+!!! warning "macOS sandbox"
+    Claude Desktop is sandboxed by macOS and cannot access files in `~/Documents/`. Always use a `pipx install` (not editable `pip install -e`) so hive is fully installed under `~/.local/` which is not sandboxed.
 
 ### Capturing a conversation
 
