@@ -1,8 +1,13 @@
 # MCP Server Reference
 
-The hive MCP server exposes session data to AI assistants over the stdio transport. It reads from the hive REST API (not SQLite directly), so it works against both localhost (solo mode) and a remote team server.
+The hive MCP server exposes session data to AI assistants over the stdio transport.
 
 **Source**: `src/hive/mcp_server.py`
+
+!!! note "Solo vs Team mode"
+    In solo mode (`server_url` points to localhost), the MCP server reads
+    directly from local SQLite -- no running `hive serve` required. In team
+    mode it proxies to the remote REST API.
 
 ## Setup
 
@@ -24,9 +29,7 @@ To make it available across all projects:
 claude mcp add --scope user --transport stdio hive -- hive mcp
 ```
 
-Start a new Claude Code session and run `/mcp` to verify — you should see `hive · connected`.
-
-The MCP server requires `hive serve` to be running (it makes HTTP calls to the REST API at the configured `server_url`, default `http://localhost:3000`).
+Start a new Claude Code session and run `/mcp` to verify -- you should see `hive · connected`.
 
 ## Tools
 
@@ -34,16 +37,12 @@ The MCP server requires `hive serve` to be running (it makes HTTP calls to the R
 
 Full-text search across all captured AI coding sessions.
 
-**Input schema**:
-
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `query` | string | yes | Search query (FTS5 syntax supported) |
 | `project` | string | no | Filter by project path substring |
 | `author` | string | no | Filter by author name |
 | `since` | string | no | ISO-8601 datetime lower bound |
-
-**Example output**:
 
 ```json
 [
@@ -61,15 +60,15 @@ Full-text search across all captured AI coding sessions.
 
 ### get_session
 
-Retrieve the complete data for a single session, including all messages, enrichments, and annotations.
-
-**Input schema**:
+Retrieve session data with optional message filtering.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `session_id` | string | yes | Unique session identifier |
-
-**Example output**:
+| `detail` | string | no | Omit for summary, `"messages"` for full conversation |
+| `role` | string | no | Filter messages by role: `"human"`, `"assistant"`, `"tool"` |
+| `limit` | integer | no | Maximum number of messages to return |
+| `offset` | integer | no | Skip this many messages (for pagination) |
 
 ```json
 {
@@ -93,19 +92,20 @@ Retrieve the complete data for a single session, including all messages, enrichm
 }
 ```
 
+!!! tip "Use `detail` and `role` to reduce payload size"
+    Omit `detail` to get just the session summary without messages. Use
+    `role = "human"` to see only user prompts, or `role = "assistant"` to
+    see only Claude's responses.
+
 Returns `{"error": "Session not found"}` if the ID does not exist.
 
 ### lineage
 
 Return the lineage graph for a file -- every session that read or modified it, along with related commits.
 
-**Input schema**:
-
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `file_path` | string | yes | Absolute or project-relative file path |
-
-**Example output**:
 
 ```json
 [
@@ -122,17 +122,17 @@ Return the lineage graph for a file -- every session that read or modified it, a
 
 ### recent
 
-List the most recent captured sessions, optionally filtered by project or author.
-
-**Input schema**:
+List the most recent captured sessions with optional filtering and sorting.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `project` | string | no | Filter by project path substring |
 | `author` | string | no | Filter by author name |
 | `n` | integer | no | Number of sessions to return (default 10, max 100) |
-
-**Example output**:
+| `sort_by` | string | no | Sort by: `"tokens"`, `"corrections"`, `"messages"` |
+| `min_tokens` | integer | no | Minimum total token count |
+| `model` | string | no | Filter by model identifier |
+| `min_correction_rate` | number | no | Minimum correction frequency (0.0-1.0) |
 
 ```json
 [
@@ -153,14 +153,11 @@ List the most recent captured sessions, optionally filtered by project or author
 
 Return aggregated statistics: total sessions, message counts, quality metrics, and date ranges.
 
-**Input schema**:
-
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `project` | string | no | Filter by project path substring |
 | `since` | string | no | ISO-8601 datetime lower bound |
-
-**Example output**:
+| `group_by` | string | no | Group results by: `"project"`, `"model"`, `"author"`, `"week"` |
 
 ```json
 {
@@ -180,19 +177,19 @@ Return aggregated statistics: total sessions, message counts, quality metrics, a
 
 Delete a session and all its related data from the server.
 
-**Input schema**:
-
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `session_id` | string | yes | Session ID to delete |
-
-**Example output**:
 
 ```json
 {"status": "ok", "session_id": "abc123-..."}
 ```
 
 Returns a 404 error if the session does not exist.
+
+## Common Filters
+
+All tools accept optional `project`, `author`, and `since` filters. Responses are structured JSON -- Claude decides what is relevant.
 
 ## Error Handling
 

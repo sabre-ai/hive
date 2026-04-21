@@ -1,0 +1,102 @@
+:root {
+  /* Brand tokens */
+  --hive-ink:   #0F0F10;
+  --hive-amber: #E8A317;
+  --hive-bone:  #F5F1E8;
+
+  /* Typography tokens */
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Material overrides */
+  --md-primary-fg-color:        var(--hive-ink);
+  --md-primary-fg-color--light: rgba(15,15,16,0.7);
+  --md-primary-fg-color--dark:  var(--hive-ink);
+  --md-accent-fg-color:         var(--hive-amber);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        rgba(15,15,16,0.85);
+  --md-primary-fg-color--light: rgba(15,15,16,0.5);
+  --md-primary-fg-color--dark:  var(--hive-ink);
+  --md-accent-fg-color:         var(--hive-amber);
+}
+
+/* Header logo + wordmark */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  width: 64px;
+  height: 64px;
+}
+
+.md-header__topic:first-child .md-ellipsis {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 42px;
+  letter-spacing: -0.04em;
+}
+
+/* Hero */
+.hive-hero {
+  padding: 4rem 0 3rem;
+  text-align: center;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.hive-hero h1 {
+  font-size: 2.6rem;
+  font-weight: 700;
+  line-height: 1.15;
+  max-width: 22ch;
+  margin: 0 auto 1rem;
+}
+
+.hive-hero p {
+  max-width: 60ch;
+  margin: 0 auto 2rem;
+  font-size: 1.1rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.hive-hero .md-button {
+  margin: 0 .25rem;
+}
+
+/* Force amber on all buttons */
+.md-typeset .md-button--primary {
+  background-color: var(--hive-amber);
+  border-color: var(--hive-amber);
+  color: var(--hive-ink);
+}
+
+.md-typeset .md-button--primary:hover {
+  background-color: #c88a00;
+  border-color: #c88a00;
+}
+
+.md-typeset .md-button:not(.md-button--primary) {
+  border-color: var(--hive-amber);
+  color: var(--hive-amber);
+}
+
+.md-typeset .md-button:not(.md-button--primary):hover {
+  background-color: var(--hive-amber);
+  color: var(--hive-ink);
+}
+
+/* Nicer grid cards */
+.md-typeset .grid.cards > ul > li {
+  border-radius: 10px;
+  transition: transform .15s ease, border-color .15s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  transform: translateY(-2px);
+  border-color: var(--md-accent-fg-color);
+}
+
+/* Mermaid diagrams — darker background in light mode */
+.mermaid {
+  text-align: center;
+}

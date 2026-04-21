@@ -1,4 +1,10 @@
-# hive
+<p align="center">
+  <img src="docs/assets/hive-mark.svg" width="56" height="56" alt="hive">
+</p>
+<h1 align="center">hive</h1>
+<p align="center">Your team's AI coding history, searchable by Claude.</p>
+
+> **Full documentation:** [sabre-ai.github.io/hive](https://sabre-ai.github.io/hive/)
 
 Team server for Claude Code. Captures AI coding sessions from every developer's machine, pushes them to a shared server, and makes the team's collective history available to every user's Claude via MCP.
 

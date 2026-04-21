@@ -4,23 +4,30 @@ Enrichers attach derived metadata to captured sessions. They run automatically a
 
 ## When Enrichers Run
 
-```
-Stop hook fires
-  -> parse JSONL transcript
-  -> insert messages
-  -> run_enrichers(session_id, session_data, query_api)
-       -> for each enricher in ALL_ENRICHERS:
-            if enricher.should_run(session):
-                results = enricher.run(session)
-                for key, value in results:
-                    insert_enrichment(session_id, enricher.name(), key, value)
+```python
+# Simplified flow inside the Stop hook handler
+def handle_stop(session_id, session_data, query_api):
+    parse_jsonl_transcript()
+    insert_messages()
+    run_enrichers(session_id, session_data, query_api)
+    #   -> for each enricher in ALL_ENRICHERS:
+    #        if enricher.should_run(session):
+    #            results = enricher.run(session)
+    #            for key, value in results:
+    #                insert_enrichment(session_id, enricher.name(), key, value)
 ```
 
 Results are stored in the `enrichments` table with columns: `session_id`, `source` (enricher name), `key`, `value`, `enriched_at`.
 
+!!! info "Error isolation"
+    Exceptions in individual enrichers are caught and logged without blocking
+    other enrichers. A failing enricher does not prevent session capture.
+
 ## Built-in Enrichers
 
-### GitEnricher (`source = "git"`)
+### GitEnricher
+
+**Source**: `src/hive/enrich/git.py` | **Enrichment source**: `"git"`
 
 Captures repository state at session time. Only runs if the project directory contains a `.git` folder.
 
@@ -32,9 +39,13 @@ Captures repository state at session time. Only runs if the project directory co
 | `diff_stat` | Output of `git diff --stat` |
 | `user_name` | Git config `user.name` |
 
-**Source**: `src/hive/enrich/git.py`
+!!! tip "When it runs"
+    Only when the project directory is a git repository. Non-git projects
+    skip this enricher automatically.
 
-### FilesEnricher (`source = "files"`)
+### FilesEnricher
+
+**Source**: `src/hive/enrich/files.py` | **Enrichment source**: `"files"`
 
 Extracts file paths mentioned in session messages. Uses two strategies: structured extraction from tool-use JSON (`file_path`, `path` keys) and regex fallback for paths in free text.
 
@@ -42,9 +53,11 @@ Extracts file paths mentioned in session messages. Uses two strategies: structur
 |-----|-------|
 | `files_touched` | Comma-separated sorted list of file paths |
 
-Always runs. **Source**: `src/hive/enrich/files.py`
+Always runs.
 
-### QualityEnricher (`source = "quality"`)
+### QualityEnricher
+
+**Source**: `src/hive/enrich/quality.py` | **Enrichment source**: `"quality"`
 
 Computes lightweight quality signals from the conversation.
 
@@ -52,12 +65,17 @@ Computes lightweight quality signals from the conversation.
 |-----|-------|
 | `message_count` | Total messages in session |
 | `human_assistant_ratio` | Ratio of human to assistant messages |
-| `correction_frequency` | Fraction of human messages containing correction signals ("no", "actually", "that's wrong", "instead", "wait") |
+| `correction_frequency` | Fraction of human messages containing correction signals |
 | `session_duration` | Duration in seconds (from timestamps) |
 
-Always runs. **Source**: `src/hive/enrich/quality.py`
+!!! info "Correction signals"
+    The correction detector looks for keywords: "no", "actually",
+    "that's wrong", "instead", "wait". This is a heuristic -- not perfect,
+    but useful for spotting sessions that required significant course correction.
 
-### Token Usage (captured during backfill)
+Always runs.
+
+### Token Usage
 
 Token data is extracted directly by `ClaudeCodeAdapter._extract_token_usage()` during backfill, not via the enricher pipeline. Stored with `source = "tokens"`.
 
@@ -85,17 +103,13 @@ from typing import Any
 class ComplexityEnricher:
     """Estimate session complexity from message length and tool usage."""
 
-    def name(self) -> str:
+    def name(self) -> str:  # (1)!
         return "complexity"
 
-    def should_run(self, session: dict[str, Any]) -> bool:
-        # Return True if this enricher applies to the session.
-        # session has keys: project_path, messages
+    def should_run(self, session: dict[str, Any]) -> bool:  # (2)!
         return bool(session.get("messages"))
 
-    def run(self, session: dict[str, Any]) -> dict[str, Any]:
-        # Return a dict of key -> value pairs.
-        # Each pair becomes one row in the enrichments table.
+    def run(self, session: dict[str, Any]) -> dict[str, Any]:  # (3)!
         messages = session.get("messages", [])
         total_chars = sum(len(m.get("content", "")) for m in messages)
         tool_count = sum(1 for m in messages if m.get("tool_name"))
@@ -105,11 +119,9 @@ class ComplexityEnricher:
         }
 ```
 
-The protocol requires three methods:
-
-- `name() -> str` -- Unique identifier, used as the `source` column in `enrichments`.
-- `should_run(session) -> bool` -- Guards execution. The `session` dict contains `project_path` and `messages`.
-- `run(session) -> dict[str, Any]` -- Returns key-value pairs. All values are cast to `str` before storage.
+1. Unique identifier, used as the `source` column in `enrichments`.
+2. Guards execution. The `session` dict contains `project_path` and `messages`.
+3. Returns key-value pairs. All values are cast to `str` before storage.
 
 ### 2. Register in `__init__.py`
 
@@ -122,8 +134,11 @@ ALL_ENRICHERS: list[Enricher] = [
     GitEnricher(),
     FilesEnricher(),
     QualityEnricher(),
-    ComplexityEnricher(),  # <-- add here
+    ComplexityEnricher(),  # add here
 ]
 ```
 
-That is all. The `run_enrichers()` function iterates `ALL_ENRICHERS` and persists results automatically. Exceptions in individual enrichers are caught and logged without blocking other enrichers.
+!!! tip "No schema changes needed"
+    The `run_enrichers()` function iterates `ALL_ENRICHERS` and persists
+    results automatically. The `enrichments` table is key-value, so new
+    enrichers work without migrations.

@@ -27,7 +27,9 @@ hive captures data from Claude Code via its hook system and from git via a post-
 }
 ```
 
-Hooks are additive -- if `.claude/settings.json` already has other hooks, hive appends its entries without duplicating.
+!!! tip "Non-destructive installation"
+    Hooks are additive -- if `.claude/settings.json` already has other hooks,
+    hive appends its entries without duplicating.
 
 ### How Hooks Execute
 
@@ -46,9 +48,14 @@ Claude Code invokes each hook command and passes a JSON payload on **stdin**. Th
 **Stdin payload**: `{"session_id": "...", "project_path": "/..."}`
 
 **What it does**:
+
 - Creates a session row in the database via `upsert_session()`
 - Collects current git state (branch, commit SHA, remote URL, author) from the project directory
 - Stores git metadata as enrichments (`source = "git"`, keys: `branch`, `commit`, `remote`)
+
+!!! info "Idempotent"
+    Calling `SessionStart` multiple times for the same session ID is safe --
+    it uses `upsert_session()` which performs an `INSERT OR REPLACE`.
 
 #### Stop
 
@@ -57,6 +64,7 @@ Claude Code invokes each hook command and passes a JSON payload on **stdin**. Th
 **Stdin payload**: `{"session_id": "...", "project_path": "/...", "transcript_path": "/..."}`
 
 **What it does**:
+
 1. Resolves the transcript JSONL file (explicit `transcript_path` or convention-based lookup under `watch_path`)
 2. Parses all lines, filtering to `type = "user" | "assistant"` and skipping `isMeta` entries
 3. Normalizes roles (`user` -> `human`), extracts text from content blocks
@@ -66,7 +74,11 @@ Claude Code invokes each hook command and passes a JSON payload on **stdin**. Th
 7. Derives a summary from the first meaningful human message (skips slash commands, XML tags, tool results)
 8. Updates the session row with `ended_at`, `message_count`, and `summary`
 9. Runs all enrichers (Git, Files, Quality)
-10. Auto-pushes to team server if sharing is enabled (see below)
+10. Auto-pushes to team server if sharing is enabled
+
+!!! warning "Secret scrubbing"
+    All message content is scrubbed **before** storage and **before** push.
+    Secrets never touch the database or leave the machine in cleartext.
 
 #### PostToolUse
 
@@ -75,10 +87,15 @@ Claude Code invokes each hook command and passes a JSON payload on **stdin**. Th
 **Stdin payload**: `{"session_id": "...", "tool_name": "Read", "tool_input": {"file_path": "/..."}}`
 
 **What it does**:
+
 - Only processes tool calls to: `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`
 - Extracts file paths from `tool_input` (structured keys for Read/Write/Edit/Glob/Grep, heuristic absolute-path extraction for Bash)
 - Creates `session -> file` edges with relationship `"touched"`
 - Duplicate edges are silently skipped
+
+!!! tip "Lineage tracking"
+    These edges power the `hive lineage <file>` command and the MCP `lineage`
+    tool, connecting files to the sessions that read or modified them.
 
 #### PreCompact
 
@@ -87,12 +104,17 @@ Claude Code invokes each hook command and passes a JSON payload on **stdin**. Th
 **Stdin payload**: `{"session_id": "...", "transcript_path": "/..."}`
 
 **What it does**:
+
 - Reads the full transcript file
 - Scrubs secrets from the raw text
 - Stores as an enrichment (`source = "compact_snapshot"`, `key = "transcript"`)
-- This preserves the full conversation before compaction truncates it
 
-## Auto-Push Flow (Stop Hook)
+!!! info "Why this matters"
+    This preserves the full conversation before compaction truncates it.
+    Without this hook, long sessions would lose early messages after
+    context compaction.
+
+## Auto-Push Flow
 
 When the `Stop` handler finishes processing, it calls `_maybe_push()`:
 
@@ -102,6 +124,11 @@ When the `Stop` handler finishes processing, it calls `_maybe_push()`:
 4. Scrub all string values in the payload with `scrub_payload()`
 5. POST to `{server_url}/api/sessions` in a **daemon thread** so the hook returns without blocking Claude Code
 6. Failures are logged at debug level and silently dropped
+
+!!! warning "Fire-and-forget"
+    The daemon thread means push failures do not block Claude Code or cause
+    errors for the user. Check `hive serve` logs if sessions are not
+    appearing on the team server.
 
 ## Git Post-Commit Hook
 
@@ -121,7 +148,10 @@ if command -v hive &>/dev/null; then
 fi
 ```
 
-If a post-commit hook already exists, hive appends its invocation to the end (preserving the existing hook). If hive is already present, installation is skipped.
+!!! tip "Existing hooks preserved"
+    If a post-commit hook already exists, hive appends its invocation to the
+    end (preserving the existing hook). If hive is already present,
+    installation is skipped.
 
 ### What It Does
 

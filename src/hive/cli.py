@@ -34,7 +34,7 @@ def init(project: str):
     config = Config.load()
     project_path = Path(project).resolve()
 
-    console.print("[bold]Setting up hive...[/bold]\n")
+    console.print("\n  [#E8A317]h›[/#E8A317]  [bold]hive[/bold]\n")
 
     # 1. Create ~/.hive/ and DB
     console.print("  Creating database...", end=" ")

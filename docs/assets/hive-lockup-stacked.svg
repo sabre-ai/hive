@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 100">
+  <!-- Mark centered (58x58, scaled from 96u) -->
+  <svg x="11" y="0" width="58" height="58" viewBox="0 0 96 96">
+    <path d="M48.00,10.00 L80.91,29.00 L80.91,67.00 L48.00,86.00 L15.09,67.00 L15.09,29.00 Z" fill="#E8A317"/>
+    <text x="38" y="50" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="32" text-anchor="middle" dominant-baseline="central" fill="#0F0F10">h</text>
+    <text x="62" y="49" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="32" text-anchor="middle" dominant-baseline="central" fill="#0F0F10">&#x203A;</text>
+  </svg>
+  <!-- Wordmark centered, gap=10px -->
+  <text x="40" y="88" font-family="'JetBrains Mono', monospace" font-weight="500" font-size="22" letter-spacing="-0.04em" text-anchor="middle" fill="#0F0F10">hive</text>
+</svg>
