@@ -22,6 +22,20 @@
   --md-accent-fg-color:         var(--hive-amber);
 }
 
+/* Header logo + wordmark */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  width: 64px;
+  height: 64px;
+}
+
+.md-header__topic:first-child .md-ellipsis {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 42px;
+  letter-spacing: -0.04em;
+}
+
 /* Hero */
 .hive-hero {
   padding: 4rem 0 3rem;
