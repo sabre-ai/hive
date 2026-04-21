@@ -141,6 +141,7 @@ def _install_claude_hooks(project_path: Path):
                 ]
                 if non_hive:
                     cleaned.append({**group, "hooks": non_hive})
+                # Drop groups that become empty after removing hive hooks
             else:
                 cleaned.append(group)
         # Add fresh hive hooks
