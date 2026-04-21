@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 from hive.config import Config
 from hive.store.db import get_connection
+
+logger = logging.getLogger(__name__)
 
 
 class QueryAPI:
@@ -147,7 +150,7 @@ class QueryAPI:
             if backend is not None:
                 return self._search_semantic(backend, query, project, author, since, until, limit)
         except Exception:
-            pass
+            logger.debug("Semantic search unavailable, falling back to FTS5", exc_info=True)
 
         return self._search_fts5(query, project, author, since, until, limit)
 
@@ -327,7 +330,8 @@ class QueryAPI:
             msg_where = " AND ".join(msg_clauses)
             limit_sql = ""
             if msg_limit is not None:
-                limit_sql = f"LIMIT {int(msg_limit)} OFFSET {int(msg_offset)}"
+                limit_sql = "LIMIT ? OFFSET ?"
+                msg_params.extend([int(msg_limit), int(msg_offset)])
 
             messages = conn.execute(
                 f"SELECT * FROM messages WHERE {msg_where} ORDER BY ordinal {limit_sql}",
@@ -698,7 +702,7 @@ class QueryAPI:
             if backend is not None:
                 backend.remove_document(session_id)
         except Exception:
-            pass
+            logger.debug("Failed to remove session from search backend", exc_info=True)
 
         return True
 

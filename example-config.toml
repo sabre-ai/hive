@@ -1,0 +1,54 @@
+# Example hive configuration — copy to ~/.config/hive/config.toml
+# and uncomment the settings you want to change.
+#
+# All values shown below are the defaults.
+
+# Path to Claude Code projects directory (session discovery).
+# watch_path = "~/.claude/projects"
+
+# Local SQLite database for captured sessions.
+# db_path = "~/.local/share/hive/store.db"
+
+# Server database (used when running `hive serve`).
+# server_db_path = "~/.local/share/hive/server.db"
+
+# Team server URL. Set to a remote URL to enable team mode.
+# server_url = "http://localhost:3000"
+
+# Port for `hive serve` to listen on.
+# server_port = 3000
+
+# Window (minutes) for linking git commits to sessions.
+# link_window_minutes = 30
+
+# ── Search ───────────────────────────────────────────────────────────
+
+[search]
+# Backend: "fts5" (built-in), "sqlite-vec" (semantic), "witchcraft", "elasticsearch", "pgvector"
+# backend = "sqlite-vec"
+
+# URL of the external search service (witchcraft / elasticsearch / pgvector).
+# url = "http://localhost:3033"
+
+# Binary name or path for the hive-search companion process.
+# binary = "hive-search"
+
+# Path to witchcraft model assets (downloaded by install.sh).
+# assets_path = ""
+
+# Path to the sqlite-vec database file.
+# vec_db_path = "~/.local/share/hive/search_vec.db"
+
+# Sentence-transformer model for semantic embeddings.
+# embedding_model = "all-MiniLM-L6-v2"
+
+# ── Secret scrubbing ────────────────────────────────────────────────
+
+[scrub]
+# Disable specific built-in patterns by name (see scrub_patterns.toml).
+# disabled_patterns = ["jwt", "basic_auth"]
+
+# Add your own regex patterns on top of the defaults.
+# extra_patterns = [
+#     'my-company-internal-token-[a-z0-9]{40}',
+# ]
