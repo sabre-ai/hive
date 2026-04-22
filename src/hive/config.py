@@ -114,6 +114,14 @@ class Config:
     search_assets_path: Path | None = None
     search_vec_db_path: Path = field(default_factory=lambda: HIVE_DATA_DIR / "search_vec.db")
     search_embedding_model: str = "all-MiniLM-L6-v2"
+    db_url: str | None = None
+
+    @property
+    def database_url(self) -> str:
+        """Return a SQLAlchemy-compatible database URL."""
+        if self.db_url:
+            return self.db_url
+        return f"sqlite:///{self.db_path}"
 
     @property
     def is_solo(self) -> bool:
@@ -143,6 +151,8 @@ class Config:
                 config.server_port = user_data["server_port"]
             if "link_window_minutes" in user_data:
                 config.link_window_minutes = user_data["link_window_minutes"]
+            if "db_url" in user_data:
+                config.db_url = user_data["db_url"]
 
             # [search] section
             search = user_data.get("search", {})

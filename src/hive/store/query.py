@@ -2,21 +2,35 @@
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 from typing import Any
 
+import sqlalchemy as sa
+from sqlalchemy import case, cast, delete, distinct, func, select, text
+from sqlalchemy.orm import Session
+
 from hive.config import Config
-from hive.store.db import get_connection
+from hive.store.db import get_engine, get_session_factory
+from hive.store.models import Annotation, Edge, Enrichment, Message
+from hive.store.models import Session as SessionModel
+
+
+def _group_concat(col, dialect_name: str):
+    """Dialect-aware GROUP_CONCAT / STRING_AGG for distinct values."""
+    if dialect_name == "postgresql":
+        return func.string_agg(distinct(cast(col, sa.Text)), ",")
+    return func.group_concat(distinct(col))
 
 
 class QueryAPI:
     def __init__(self, config: Config | None = None, db_path: Path | None = None):
         self.config = config or Config.load()
         self._db_path = db_path
+        self._factory = get_session_factory(self.config, db_path)
+        self._dialect = get_engine(self.config, db_path).dialect.name
 
-    def _conn(self) -> sqlite3.Connection:
-        return get_connection(self.config, db_path=self._db_path)
+    def _session(self) -> Session:
+        return self._factory()
 
     # ── List / filter sessions ──────────────────────────────────────
 
@@ -35,88 +49,97 @@ class QueryAPI:
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        joins: list[str] = []
+        S = SessionModel
+        A = Annotation
+        E = Enrichment
 
-        if source:
-            clauses.append("s.source = ?")
-            params.append(source)
-        if project:
-            clauses.append("s.project_path LIKE ?")
-            params.append(f"%{project}%")
-        if author:
-            clauses.append("s.author = ?")
-            params.append(author)
-        if since:
-            clauses.append("s.started_at >= ?")
-            params.append(since)
-        if until:
-            clauses.append("s.started_at <= ?")
-            params.append(until)
-        if tag:
-            clauses.append(
-                "EXISTS (SELECT 1 FROM annotations a2 WHERE a2.session_id = s.id AND a2.type = 'tag' AND a2.value = ?)"
+        with self._session() as session:
+            # Base query with tag aggregation
+            tag_sub = (
+                select(A.session_id, _group_concat(A.value, self._dialect).label("tags"))
+                .where(A.type == "tag")
+                .group_by(A.session_id)
+                .subquery()
             )
-            params.append(tag)
 
-        # Enrichment-based filters
-        if min_tokens is not None:
-            joins.append(
-                "JOIN enrichments e_tok ON e_tok.session_id = s.id AND e_tok.source = 'tokens' AND e_tok.key = 'total_tokens'"
-            )
-            clauses.append("CAST(e_tok.value AS INTEGER) >= ?")
-            params.append(min_tokens)
-        if model:
-            joins.append(
-                "JOIN enrichments e_mod ON e_mod.session_id = s.id AND e_mod.source = 'tokens' AND e_mod.key = 'model'"
-            )
-            clauses.append("e_mod.value = ?")
-            params.append(model)
-        if min_correction_rate is not None:
-            joins.append(
-                "JOIN enrichments e_cf ON e_cf.session_id = s.id AND e_cf.source = 'quality' AND e_cf.key = 'correction_frequency'"
-            )
-            clauses.append("CAST(e_cf.value AS REAL) >= ?")
-            params.append(min_correction_rate)
+            q = select(S, tag_sub.c.tags).outerjoin(tag_sub, S.id == tag_sub.c.session_id)
 
-        # Sort by enrichment value
-        order = "s.started_at DESC"
-        if sort_by == "tokens":
-            if "e_tok" not in " ".join(joins):
-                joins.append(
-                    "LEFT JOIN enrichments e_tok ON e_tok.session_id = s.id AND e_tok.source = 'tokens' AND e_tok.key = 'total_tokens'"
+            # Filters
+            if source:
+                q = q.where(S.source == source)
+            if project:
+                q = q.where(S.project_path.like(f"%{project}%"))
+            if author:
+                q = q.where(S.author == author)
+            if since:
+                q = q.where(S.started_at >= since)
+            if until:
+                q = q.where(S.started_at <= until)
+            if tag:
+                q = q.where(S.id.in_(select(A.session_id).where(A.type == "tag", A.value == tag)))
+
+            # Enrichment-based filters via subqueries
+            if min_tokens is not None:
+                tok_sub = (
+                    select(E.session_id)
+                    .where(E.source == "tokens", E.key == "total_tokens")
+                    .where(cast(E.value, sa.Integer) >= min_tokens)
                 )
-            order = "CAST(e_tok.value AS INTEGER) DESC"
-        elif sort_by == "corrections":
-            if "e_cf" not in " ".join(joins):
-                joins.append(
-                    "LEFT JOIN enrichments e_cf ON e_cf.session_id = s.id AND e_cf.source = 'quality' AND e_cf.key = 'correction_frequency'"
+                q = q.where(S.id.in_(tok_sub))
+            if model:
+                mod_sub = select(E.session_id).where(
+                    E.source == "tokens", E.key == "model", E.value == model
                 )
-            order = "CAST(e_cf.value AS REAL) DESC"
-        elif sort_by == "messages":
-            order = "s.message_count DESC"
+                q = q.where(S.id.in_(mod_sub))
+            if min_correction_rate is not None:
+                cf_sub = (
+                    select(E.session_id)
+                    .where(E.source == "quality", E.key == "correction_frequency")
+                    .where(cast(E.value, sa.Float) >= min_correction_rate)
+                )
+                q = q.where(S.id.in_(cf_sub))
 
-        join_sql = "\n".join(joins)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        params.extend([limit, offset])
+            # Sorting
+            if sort_by == "tokens":
+                tok_sort = (
+                    select(E.session_id, cast(E.value, sa.Integer).label("tok_val"))
+                    .where(E.source == "tokens", E.key == "total_tokens")
+                    .subquery()
+                )
+                q = q.outerjoin(tok_sort, S.id == tok_sort.c.session_id)
+                q = q.order_by(tok_sort.c.tok_val.desc().nullslast())
+            elif sort_by == "corrections":
+                cf_sort = (
+                    select(E.session_id, cast(E.value, sa.Float).label("cf_val"))
+                    .where(E.source == "quality", E.key == "correction_frequency")
+                    .subquery()
+                )
+                q = q.outerjoin(cf_sort, S.id == cf_sort.c.session_id)
+                q = q.order_by(cf_sort.c.cf_val.desc().nullslast())
+            elif sort_by == "messages":
+                q = q.order_by(S.message_count.desc())
+            else:
+                q = q.order_by(S.started_at.desc())
 
-        conn = self._conn()
-        rows = conn.execute(
-            f"""
-            SELECT s.*, GROUP_CONCAT(DISTINCT a.value) as tags
-            FROM sessions s
-            LEFT JOIN annotations a ON a.session_id = s.id AND a.type = 'tag'
-            {join_sql}
-            {where}
-            GROUP BY s.id
-            ORDER BY {order}
-            LIMIT ? OFFSET ?
-            """,
-            params,
-        ).fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+            q = q.limit(limit).offset(offset)
+            rows = session.execute(q).all()
+
+            results = []
+            for row in rows:
+                s = row[0]
+                d = {
+                    "id": s.id,
+                    "source": s.source,
+                    "project_path": s.project_path,
+                    "author": s.author,
+                    "started_at": s.started_at,
+                    "ended_at": s.ended_at,
+                    "message_count": s.message_count,
+                    "summary": s.summary,
+                    "tags": row[1],
+                }
+                results.append(d)
+            return results
 
     # ── Full-text search ────────────────────────────────────────────
 
@@ -168,7 +191,6 @@ class QueryAPI:
         if not results:
             return []
 
-        # Extract session IDs from metadata and look up full session data
         session_ids = []
         result_map: dict[str, dict[str, Any]] = {}
         for item in results:
@@ -181,29 +203,22 @@ class QueryAPI:
         if not session_ids:
             return []
 
-        # Batch lookup sessions from hive's store.db
-        conn = self._conn()
-        placeholders = ",".join("?" for _ in session_ids)
-        rows = conn.execute(
-            f"SELECT * FROM sessions WHERE id IN ({placeholders})",
-            session_ids,
-        ).fetchall()
-        conn.close()
+        with self._session() as session:
+            rows = (
+                session.execute(select(SessionModel).where(SessionModel.id.in_(session_ids)))
+                .scalars()
+                .all()
+            )
 
-        # Merge hive metadata with witchcraft scores
         output = []
-        for row in rows:
-            session = dict(row)
-            sid = session["id"]
-            wc = result_map.get(sid, {})
-            # Use matched body chunk as snippet, trimmed
+        for s in rows:
+            d = _session_to_dict(s)
+            wc = result_map.get(s.id, {})
             body = wc.get("body", "")
-            snippet = body[:200] + "…" if len(body) > 200 else body
-            session["snippet"] = snippet
-            session["score"] = wc.get("score", 0.0)
-            output.append(session)
+            d["snippet"] = body[:200] + "…" if len(body) > 200 else body
+            d["score"] = wc.get("score", 0.0)
+            output.append(d)
 
-        # Sort by witchcraft score (descending)
         output.sort(key=lambda s: s.get("score", 0.0), reverse=True)
         return output
 
@@ -216,41 +231,44 @@ class QueryAPI:
         until: str | None,
         limit: int,
     ) -> list[dict[str, Any]]:
-        """Fall back to SQLite FTS5 keyword search."""
-        conn = self._conn()
-        clauses = []
-        params: list[Any] = [query]
+        """Fall back to SQLite FTS5 keyword search (raw SQL — SQLite only)."""
+        with self._session() as session:
+            clauses = []
+            params: dict[str, Any] = {"query": query, "limit": limit}
 
-        if project:
-            clauses.append("AND s.project_path LIKE ?")
-            params.append(f"%{project}%")
-        if author:
-            clauses.append("AND s.author = ?")
-            params.append(author)
-        if since:
-            clauses.append("AND s.started_at >= ?")
-            params.append(since)
-        if until:
-            clauses.append("AND s.started_at <= ?")
-            params.append(until)
+            if project:
+                clauses.append("AND s.project_path LIKE :project")
+                params["project"] = f"%{project}%"
+            if author:
+                clauses.append("AND s.author = :author")
+                params["author"] = author
+            if since:
+                clauses.append("AND s.started_at >= :since")
+                params["since"] = since
+            if until:
+                clauses.append("AND s.started_at <= :until")
+                params["until"] = until
 
-        extra = " ".join(clauses)
-        params.append(limit)
-
-        rows = conn.execute(
-            f"""
-            SELECT s.*, snippet(sessions_fts, 1, '<mark>', '</mark>', '…', 32) as snippet
-            FROM sessions_fts fts
-            JOIN sessions s ON s.id = fts.session_id
-            WHERE sessions_fts MATCH ?
-            {extra}
-            ORDER BY rank
-            LIMIT ?
-            """,
-            params,
-        ).fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+            extra = " ".join(clauses)
+            rows = (
+                session.execute(
+                    text(
+                        f"""
+                    SELECT s.*, snippet(sessions_fts, 1, '<mark>', '</mark>', '…', 32) as snippet
+                    FROM sessions_fts fts
+                    JOIN sessions s ON s.id = fts.session_id
+                    WHERE sessions_fts MATCH :query
+                    {extra}
+                    ORDER BY rank
+                    LIMIT :limit
+                    """
+                    ),
+                    params,
+                )
+                .mappings()
+                .all()
+            )
+            return [dict(r) for r in rows]
 
     # ── Get single session ──────────────────────────────────────────
 
@@ -262,137 +280,175 @@ class QueryAPI:
         msg_limit: int | None = None,
         msg_offset: int = 0,
     ) -> dict[str, Any] | None:
-        conn = self._conn()
-        session = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
-        if not session:
-            conn.close()
-            return None
+        with self._session() as session:
+            s = session.get(SessionModel, session_id)
+            if not s:
+                return None
 
-        # Always include enrichments (lightweight)
-        enrichments = conn.execute(
-            "SELECT * FROM enrichments WHERE session_id = ? ORDER BY enriched_at",
-            (session_id,),
-        ).fetchall()
+            enrichments = (
+                session.execute(
+                    select(Enrichment)
+                    .where(Enrichment.session_id == session_id)
+                    .order_by(Enrichment.enriched_at)
+                )
+                .scalars()
+                .all()
+            )
 
-        annotations = conn.execute(
-            "SELECT * FROM annotations WHERE session_id = ? ORDER BY created_at",
-            (session_id,),
-        ).fetchall()
+            annotations = (
+                session.execute(
+                    select(Annotation)
+                    .where(Annotation.session_id == session_id)
+                    .order_by(Annotation.created_at)
+                )
+                .scalars()
+                .all()
+            )
 
-        # Compute message stats (cheap aggregate, no content transfer)
-        msg_stats = conn.execute(
-            """
-            SELECT
-                COUNT(*) as total,
-                SUM(CASE WHEN role = 'human' THEN 1 ELSE 0 END) as human_count,
-                SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) as assistant_count,
-                SUM(CASE WHEN role = 'tool' THEN 1 ELSE 0 END) as tool_count
-            FROM messages WHERE session_id = ?
-            """,
-            (session_id,),
-        ).fetchone()
+            # Message stats
+            msg_stats = session.execute(
+                select(
+                    func.count().label("total"),
+                    func.sum(case((Message.role == "human", 1), else_=0)).label("human_count"),
+                    func.sum(case((Message.role == "assistant", 1), else_=0)).label(
+                        "assistant_count"
+                    ),
+                    func.sum(case((Message.role == "tool", 1), else_=0)).label("tool_count"),
+                ).where(Message.session_id == session_id)
+            ).one()
 
-        # Flatten enrichments into a dict for easy access
-        enrichment_dict = {}
-        for e in enrichments:
-            key = f"{e['source']}/{e['key']}"
-            enrichment_dict[key] = e["value"]
+            enrichment_dict = {}
+            for e in enrichments:
+                key = f"{e.source}/{e.key}"
+                enrichment_dict[key] = e.value
 
-        # Get files touched from edges
-        files = conn.execute(
-            "SELECT DISTINCT target_id FROM edges WHERE source_type = 'session' AND source_id = ? AND target_type = 'file'",
-            (session_id,),
-        ).fetchall()
+            files = (
+                session.execute(
+                    select(distinct(Edge.target_id)).where(
+                        Edge.source_type == "session",
+                        Edge.source_id == session_id,
+                        Edge.target_type == "file",
+                    )
+                )
+                .scalars()
+                .all()
+            )
 
-        result: dict[str, Any] = {
-            **dict(session),
-            "enrichments": enrichment_dict,
-            "enrichments_raw": [dict(e) for e in enrichments],
-            "annotations": [dict(a) for a in annotations],
-            "human_message_count": msg_stats["human_count"] or 0,
-            "assistant_message_count": msg_stats["assistant_count"] or 0,
-            "tool_message_count": msg_stats["tool_count"] or 0,
-            "files_touched": [f["target_id"] for f in files],
-        }
+            result: dict[str, Any] = {
+                **_session_to_dict(s),
+                "enrichments": enrichment_dict,
+                "enrichments_raw": [
+                    {
+                        "id": e.id,
+                        "session_id": e.session_id,
+                        "source": e.source,
+                        "key": e.key,
+                        "value": e.value,
+                        "enriched_at": e.enriched_at,
+                    }
+                    for e in enrichments
+                ],
+                "annotations": [
+                    {
+                        "id": a.id,
+                        "session_id": a.session_id,
+                        "type": a.type,
+                        "value": a.value,
+                        "author": a.author,
+                        "created_at": a.created_at,
+                    }
+                    for a in annotations
+                ],
+                "human_message_count": msg_stats.human_count or 0,
+                "assistant_message_count": msg_stats.assistant_count or 0,
+                "tool_message_count": msg_stats.tool_count or 0,
+                "files_touched": list(files),
+            }
 
-        # Only include messages if detail="messages"
-        if detail == "messages":
-            msg_clauses = ["session_id = ?"]
-            msg_params: list[Any] = [session_id]
+            if detail == "messages":
+                q = select(Message).where(Message.session_id == session_id)
+                if role:
+                    q = q.where(Message.role == role)
+                q = q.order_by(Message.ordinal)
+                if msg_limit is not None:
+                    q = q.limit(msg_limit).offset(msg_offset)
+                messages = session.execute(q).scalars().all()
+                result["messages"] = [
+                    {
+                        "id": m.id,
+                        "session_id": m.session_id,
+                        "ordinal": m.ordinal,
+                        "role": m.role,
+                        "content": m.content,
+                        "tool_name": m.tool_name,
+                        "timestamp": m.timestamp,
+                    }
+                    for m in messages
+                ]
 
-            if role:
-                msg_clauses.append("role = ?")
-                msg_params.append(role)
-
-            msg_where = " AND ".join(msg_clauses)
-            limit_sql = ""
-            if msg_limit is not None:
-                limit_sql = f"LIMIT {int(msg_limit)} OFFSET {int(msg_offset)}"
-
-            messages = conn.execute(
-                f"SELECT * FROM messages WHERE {msg_where} ORDER BY ordinal {limit_sql}",
-                msg_params,
-            ).fetchall()
-            result["messages"] = [dict(m) for m in messages]
-
-        conn.close()
-        return result
+            return result
 
     # ── Lineage ─────────────────────────────────────────────────────
 
     def get_lineage(self, identifier: str, id_type: str = "file") -> list[dict[str, Any]]:
-        """Walk edges graph for a file path or session ID.
+        """Walk edges graph for a file path or session ID."""
+        with self._session() as session:
+            if id_type == "file":
+                rows = (
+                    session.execute(
+                        text(
+                            """
+                        SELECT
+                            s.id as session_id,
+                            s.summary,
+                            s.started_at,
+                            s.author,
+                            GROUP_CONCAT(DISTINCT e_file.relationship) as relationships,
+                            GROUP_CONCAT(DISTINCT e_commit.target_id) as commit_shas
+                        FROM edges e_file
+                        JOIN sessions s ON e_file.source_type = 'session' AND s.id = e_file.source_id
+                        LEFT JOIN edges e_commit ON (
+                            e_commit.source_type = 'session'
+                            AND e_commit.source_id = s.id
+                            AND e_commit.target_type = 'commit'
+                        )
+                        WHERE e_file.target_type = 'file' AND e_file.target_id = :identifier
+                        GROUP BY s.id
+                        ORDER BY s.started_at DESC
+                        """
+                        ),
+                        {"identifier": identifier},
+                    )
+                    .mappings()
+                    .all()
+                )
+            else:
+                rows = (
+                    session.execute(
+                        text(
+                            """
+                        SELECT
+                            e.*,
+                            s.summary,
+                            s.started_at,
+                            s.author
+                        FROM edges e
+                        LEFT JOIN sessions s ON (
+                            (e.source_type = 'session' AND s.id = e.source_id) OR
+                            (e.target_type = 'session' AND s.id = e.target_id)
+                        )
+                        WHERE (e.source_type = 'session' AND e.source_id = :id1)
+                           OR (e.target_type = 'session' AND e.target_id = :id2)
+                        ORDER BY e.created_at DESC
+                        """
+                        ),
+                        {"id1": identifier, "id2": identifier},
+                    )
+                    .mappings()
+                    .all()
+                )
 
-        For files, returns one row per session that touched the file,
-        with associated commit SHAs aggregated.
-        """
-        conn = self._conn()
-        if id_type == "file":
-            # Find sessions linked to this file, plus any commits those sessions produced
-            rows = conn.execute(
-                """
-                SELECT
-                    s.id as session_id,
-                    s.summary,
-                    s.started_at,
-                    s.author,
-                    GROUP_CONCAT(DISTINCT e_file.relationship) as relationships,
-                    GROUP_CONCAT(DISTINCT e_commit.target_id) as commit_shas
-                FROM edges e_file
-                JOIN sessions s ON e_file.source_type = 'session' AND s.id = e_file.source_id
-                LEFT JOIN edges e_commit ON (
-                    e_commit.source_type = 'session'
-                    AND e_commit.source_id = s.id
-                    AND e_commit.target_type = 'commit'
-                )
-                WHERE e_file.target_type = 'file' AND e_file.target_id = ?
-                GROUP BY s.id
-                ORDER BY s.started_at DESC
-                """,
-                (identifier,),
-            ).fetchall()
-        else:
-            # Session-based: return all connected edges
-            rows = conn.execute(
-                """
-                SELECT
-                    e.*,
-                    s.summary,
-                    s.started_at,
-                    s.author
-                FROM edges e
-                LEFT JOIN sessions s ON (
-                    (e.source_type = 'session' AND s.id = e.source_id) OR
-                    (e.target_type = 'session' AND s.id = e.target_id)
-                )
-                WHERE (e.source_type = 'session' AND e.source_id = ?)
-                   OR (e.target_type = 'session' AND e.target_id = ?)
-                ORDER BY e.created_at DESC
-                """,
-                (identifier, identifier),
-            ).fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+            return [dict(r) for r in rows]
 
     # ── Stats ───────────────────────────────────────────────────────
 
@@ -402,180 +458,222 @@ class QueryAPI:
         since: str | None = None,
         group_by: str | None = None,
     ) -> dict[str, Any] | list[dict[str, Any]]:
-        conn = self._conn()
-        clauses: list[str] = []
-        params: list[Any] = []
-        if project:
-            clauses.append("s.project_path LIKE ?")
-            params.append(f"%{project}%")
-        if since:
-            clauses.append("s.started_at >= ?")
-            params.append(since)
-        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        S = SessionModel
+        E = Enrichment
 
-        # Grouped stats
-        if group_by in ("project", "model", "author", "week"):
-            if group_by == "project":
-                group_col = "s.project_path"
-                group_label = "project"
-            elif group_by == "model":
-                group_col = "e_model.value"
-                group_label = "model"
-            elif group_by == "author":
-                group_col = "s.author"
-                group_label = "author"
-            elif group_by == "week":
-                group_col = "strftime('%Y-W%W', s.started_at)"
-                group_label = "week"
+        with self._session() as session:
+            filters = []
+            if project:
+                filters.append(S.project_path.like(f"%{project}%"))
+            if since:
+                filters.append(S.started_at >= since)
 
-            model_join = ""
-            if group_by == "model":
-                model_join = "LEFT JOIN enrichments e_model ON e_model.session_id = s.id AND e_model.source = 'tokens' AND e_model.key = 'model'"
+            if group_by in ("project", "model", "author", "week"):
+                if group_by == "project":
+                    group_col = S.project_path
+                    group_label = "project"
+                elif group_by == "author":
+                    group_col = S.author
+                    group_label = "author"
+                elif group_by == "week":
+                    if self._dialect == "postgresql":
+                        group_col = func.to_char(S.started_at, 'IYYY-"W"IW')
+                    else:
+                        group_col = func.strftime("%Y-W%W", S.started_at)
+                    group_label = "week"
+                elif group_by == "model":
+                    group_label = "model"
+                    # Model comes from enrichments — use raw SQL for this complex case
+                    return self._get_stats_grouped_by_model(session, filters)
 
-            # Get token totals per group
-            rows = conn.execute(
-                f"""
-                SELECT
-                    {group_col} as group_key,
-                    COUNT(DISTINCT s.id) as total_sessions,
-                    SUM(s.message_count) as total_messages,
-                    AVG(s.message_count) as avg_messages,
-                    MIN(s.started_at) as earliest,
-                    MAX(s.started_at) as latest
-                FROM sessions s
-                {model_join}
-                {where}
-                GROUP BY group_key
-                ORDER BY total_sessions DESC
-                """,
-                params,
-            ).fetchall()
+                q = (
+                    select(
+                        group_col.label("group_key"),
+                        func.count(distinct(S.id)).label("total_sessions"),
+                        func.sum(S.message_count).label("total_messages"),
+                        func.avg(S.message_count).label("avg_messages"),
+                        func.min(S.started_at).label("earliest"),
+                        func.max(S.started_at).label("latest"),
+                    )
+                    .where(*filters)
+                    .group_by(group_col)
+                    .order_by(func.count(distinct(S.id)).desc())
+                )
+                rows = session.execute(q).all()
+                return [
+                    {
+                        group_label: r.group_key,
+                        "total_sessions": r.total_sessions,
+                        "total_messages": r.total_messages,
+                        "avg_messages": float(r.avg_messages) if r.avg_messages else 0,
+                        "earliest": r.earliest,
+                        "latest": r.latest,
+                    }
+                    for r in rows
+                ]
 
-            results = []
-            for r in rows:
-                group_key = r["group_key"]
-                entry: dict[str, Any] = {
-                    group_label: group_key,
-                    "total_sessions": r["total_sessions"],
-                    "total_messages": r["total_messages"],
-                    "avg_messages": r["avg_messages"],
-                    "earliest": r["earliest"],
-                    "latest": r["latest"],
+            # Flat stats
+            row = session.execute(
+                select(
+                    func.count().label("total_sessions"),
+                    func.avg(S.message_count).label("avg_messages"),
+                    func.sum(S.message_count).label("total_messages"),
+                    func.min(S.started_at).label("earliest"),
+                    func.max(S.started_at).label("latest"),
+                )
+                .select_from(S)
+                .where(*filters)
+            ).one()
+
+            quality_rows = session.execute(
+                select(
+                    E.key,
+                    func.avg(cast(E.value, sa.Float)).label("avg_val"),
+                    func.sum(cast(E.value, sa.Float)).label("sum_val"),
+                )
+                .join(S, S.id == E.session_id)
+                .where(E.source == "quality", *filters)
+                .group_by(E.key)
+            ).all()
+
+            result: dict[str, Any] = {
+                "total_sessions": row.total_sessions,
+                "avg_messages": float(row.avg_messages) if row.avg_messages else 0,
+                "total_messages": row.total_messages or 0,
+                "earliest": row.earliest,
+                "latest": row.latest,
+            }
+            result["quality"] = {
+                r.key: {
+                    "avg": float(r.avg_val) if r.avg_val else 0,
+                    "total": float(r.sum_val) if r.sum_val else 0,
                 }
+                for r in quality_rows
+            }
+            return result
 
-                # Get token totals for this group
-                if group_by == "model":
-                    tok_rows = conn.execute(
-                        """
-                        SELECT SUM(CAST(e2.value AS INTEGER)) as total_tokens
-                        FROM enrichments e2
-                        JOIN enrichments e_m ON e_m.session_id = e2.session_id AND e_m.source = 'tokens' AND e_m.key = 'model' AND e_m.value = ?
-                        WHERE e2.source = 'tokens' AND e2.key = 'total_tokens'
-                        """,
-                        (group_key,),
-                    ).fetchone()
-                    entry["total_tokens"] = tok_rows["total_tokens"] if tok_rows else 0
-                results.append(entry)
+    def _get_stats_grouped_by_model(self, session: Session, filters: list) -> list[dict[str, Any]]:
+        """Group-by-model stats using enrichment join."""
+        S = SessionModel
+        E = Enrichment
 
-            conn.close()
-            return results
+        e_model = E.__table__.alias("e_model")
+        q = (
+            select(
+                e_model.c.value.label("group_key"),
+                func.count(distinct(S.id)).label("total_sessions"),
+                func.sum(S.message_count).label("total_messages"),
+                func.avg(S.message_count).label("avg_messages"),
+                func.min(S.started_at).label("earliest"),
+                func.max(S.started_at).label("latest"),
+            )
+            .select_from(S)
+            .join(
+                e_model,
+                (e_model.c.session_id == S.id)
+                & (e_model.c.source == "tokens")
+                & (e_model.c.key == "model"),
+            )
+            .where(*filters)
+            .group_by(e_model.c.value)
+            .order_by(func.count(distinct(S.id)).desc())
+        )
+        rows = session.execute(q).all()
 
-        # Flat stats (existing behavior)
-        row = conn.execute(
-            f"""
-            SELECT
-                COUNT(*) as total_sessions,
-                AVG(s.message_count) as avg_messages,
-                SUM(s.message_count) as total_messages,
-                MIN(s.started_at) as earliest,
-                MAX(s.started_at) as latest
-            FROM sessions s {where}
-            """,
-            params,
-        ).fetchone()
+        results = []
+        for r in rows:
+            entry: dict[str, Any] = {
+                "model": r.group_key,
+                "total_sessions": r.total_sessions,
+                "total_messages": r.total_messages,
+                "avg_messages": float(r.avg_messages) if r.avg_messages else 0,
+                "earliest": r.earliest,
+                "latest": r.latest,
+            }
 
-        # Gather quality enrichments
-        quality_params = list(params)
-        quality_rows = conn.execute(
-            f"""
-            SELECT e.key, AVG(CAST(e.value AS REAL)) as avg_val,
-                   SUM(CAST(e.value AS REAL)) as sum_val
-            FROM enrichments e
-            JOIN sessions s ON s.id = e.session_id
-            {where + " AND" if where else "WHERE"} e.source = 'quality'
-            GROUP BY e.key
-            """,
-            quality_params,
-        ).fetchall()
+            # Token totals for this model
+            tok_row = session.execute(
+                text(
+                    """
+                    SELECT SUM(CAST(e2.value AS INTEGER)) as total_tokens
+                    FROM enrichments e2
+                    JOIN enrichments e_m ON e_m.session_id = e2.session_id
+                        AND e_m.source = 'tokens' AND e_m.key = 'model' AND e_m.value = :model
+                    WHERE e2.source = 'tokens' AND e2.key = 'total_tokens'
+                    """
+                ),
+                {"model": r.group_key},
+            ).one()
+            entry["total_tokens"] = tok_row.total_tokens or 0
+            results.append(entry)
 
-        conn.close()
-        result = dict(row) if row else {}
-        result["quality"] = {
-            r["key"]: {"avg": r["avg_val"], "total": r["sum_val"]} for r in quality_rows
-        }
-        return result
+        return results
 
     # ── Token usage ──────────────────────────────────────────────────
 
     def get_session_tokens(self, session_id: str) -> dict[str, str]:
         """Return token enrichments for a session as a dict."""
-        conn = self._conn()
-        rows = conn.execute(
-            "SELECT key, value FROM enrichments WHERE session_id = ? AND source = 'tokens'",
-            (session_id,),
-        ).fetchall()
-        conn.close()
-        return {r["key"]: r["value"] for r in rows}
+        with self._session() as session:
+            rows = session.execute(
+                select(Enrichment.key, Enrichment.value).where(
+                    Enrichment.session_id == session_id, Enrichment.source == "tokens"
+                )
+            ).all()
+            return {r.key: r.value for r in rows}
 
     def get_token_stats(
         self, project: str | None = None, since: str | None = None
     ) -> dict[str, Any]:
         """Aggregate token usage across sessions."""
-        conn = self._conn()
-        clauses = ["e.source = 'tokens'", "e.key != 'model'"]
-        params: list[Any] = []
-        if project:
-            clauses.append("s.project_path LIKE ?")
-            params.append(f"%{project}%")
-        if since:
-            clauses.append("s.started_at >= ?")
-            params.append(since)
-        where = "WHERE " + " AND ".join(clauses)
+        S = SessionModel
+        E = Enrichment
 
-        rows = conn.execute(
-            f"""
-            SELECT e.key, SUM(CAST(e.value AS INTEGER)) as total
-            FROM enrichments e
-            JOIN sessions s ON s.id = e.session_id
-            {where}
-            GROUP BY e.key
-            """,
-            params,
-        ).fetchall()
-        conn.close()
-        return {r["key"]: r["total"] for r in rows}
+        with self._session() as session:
+            filters = [E.source == "tokens", E.key != "model"]
+            if project:
+                filters.append(S.project_path.like(f"%{project}%"))
+            if since:
+                filters.append(S.started_at >= since)
+
+            rows = session.execute(
+                select(
+                    E.key,
+                    func.sum(cast(E.value, sa.Integer)).label("total"),
+                )
+                .join(S, S.id == E.session_id)
+                .where(*filters)
+                .group_by(E.key)
+            ).all()
+            return {r.key: r.total for r in rows}
 
     # ── Projects ─────────────────────────────────────────────────────
 
     def list_projects(self) -> list[dict[str, Any]]:
         """Return distinct projects with session counts and last activity."""
-        conn = self._conn()
-        rows = conn.execute(
-            """
-            SELECT
-                project_path,
-                COUNT(*) as session_count,
-                SUM(message_count) as total_messages,
-                MAX(started_at) as last_active,
-                MIN(started_at) as first_active
-            FROM sessions
-            WHERE project_path IS NOT NULL AND project_path != ''
-            GROUP BY project_path
-            ORDER BY last_active DESC
-            """
-        ).fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+        S = SessionModel
+        with self._session() as session:
+            rows = session.execute(
+                select(
+                    S.project_path,
+                    func.count().label("session_count"),
+                    func.sum(S.message_count).label("total_messages"),
+                    func.max(S.started_at).label("last_active"),
+                    func.min(S.started_at).label("first_active"),
+                )
+                .where(S.project_path.isnot(None), S.project_path != "")
+                .group_by(S.project_path)
+                .order_by(func.max(S.started_at).desc())
+            ).all()
+            return [
+                {
+                    "project_path": r.project_path,
+                    "session_count": r.session_count,
+                    "total_messages": r.total_messages,
+                    "last_active": str(r.last_active) if r.last_active else None,
+                    "first_active": str(r.first_active) if r.first_active else None,
+                }
+                for r in rows
+            ]
 
     # ── Annotations ─────────────────────────────────────────────────
 
@@ -586,59 +684,64 @@ class QueryAPI:
         value: str,
         author: str = "user",
     ) -> int:
-        conn = self._conn()
-        cursor = conn.execute(
-            "INSERT INTO annotations (session_id, type, value, author) VALUES (?, ?, ?, ?)",
-            (session_id, ann_type, value, author),
-        )
-        conn.commit()
-        row_id = cursor.lastrowid
-        conn.close()
-        return row_id
+        with self._session() as session:
+            ann = Annotation(session_id=session_id, type=ann_type, value=value, author=author)
+            session.add(ann)
+            session.commit()
+            return ann.id
 
     # ── Write helpers (used by capture/enrich) ──────────────────────
 
-    def upsert_session(self, session: dict[str, Any]) -> None:
-        conn = self._conn()
-        conn.execute(
-            """
-            INSERT INTO sessions (id, source, project_path, author, started_at, ended_at, message_count, summary)
-            VALUES (:id, :source, :project_path, :author, :started_at, :ended_at, :message_count, :summary)
-            ON CONFLICT(id) DO UPDATE SET
-                ended_at = excluded.ended_at,
-                message_count = excluded.message_count,
-                summary = COALESCE(excluded.summary, sessions.summary)
-            """,
-            session,
-        )
-        conn.commit()
-        conn.close()
+    def upsert_session(self, data: dict[str, Any]) -> None:
+        with self._session() as session:
+            existing = session.get(SessionModel, data["id"])
+            if existing:
+                existing.ended_at = data.get("ended_at", existing.ended_at)
+                existing.message_count = data.get("message_count", existing.message_count)
+                existing.summary = data.get("summary") or existing.summary
+            else:
+                s = SessionModel(
+                    id=data["id"],
+                    source=data["source"],
+                    project_path=data.get("project_path"),
+                    author=data.get("author"),
+                    started_at=data.get("started_at"),
+                    ended_at=data.get("ended_at"),
+                    message_count=data.get("message_count", 0),
+                    summary=data.get("summary"),
+                )
+                session.add(s)
+            session.commit()
 
     def insert_messages(self, messages: list[dict[str, Any]]) -> None:
         if not messages:
             return
-        conn = self._conn()
-        conn.executemany(
-            """
-            INSERT OR IGNORE INTO messages (session_id, ordinal, role, content, tool_name, timestamp)
-            VALUES (:session_id, :ordinal, :role, :content, :tool_name, :timestamp)
-            """,
-            messages,
-        )
-        conn.commit()
-        conn.close()
+        with self._session() as session:
+            for msg in messages:
+                # Check for existing message to implement INSERT OR IGNORE
+                existing = session.execute(
+                    select(Message).where(
+                        Message.session_id == msg["session_id"],
+                        Message.ordinal == msg["ordinal"],
+                    )
+                ).scalar_one_or_none()
+                if existing is None:
+                    session.add(
+                        Message(
+                            session_id=msg["session_id"],
+                            ordinal=msg["ordinal"],
+                            role=msg["role"],
+                            content=msg.get("content"),
+                            tool_name=msg.get("tool_name"),
+                            timestamp=msg.get("timestamp"),
+                        )
+                    )
+            session.commit()
 
     def insert_enrichment(self, session_id: str, source: str, key: str, value: str) -> None:
-        conn = self._conn()
-        conn.execute(
-            """
-            INSERT INTO enrichments (session_id, source, key, value)
-            VALUES (?, ?, ?, ?)
-            """,
-            (session_id, source, key, value),
-        )
-        conn.commit()
-        conn.close()
+        with self._session() as session:
+            session.add(Enrichment(session_id=session_id, source=source, key=key, value=value))
+            session.commit()
 
     def insert_edge(
         self,
@@ -648,49 +751,51 @@ class QueryAPI:
         target_id: str,
         relationship: str,
     ) -> None:
-        conn = self._conn()
-        conn.execute(
-            """
-            INSERT INTO edges (source_type, source_id, target_type, target_id, relationship)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (source_type, source_id, target_type, target_id, relationship),
-        )
-        conn.commit()
-        conn.close()
+        with self._session() as session:
+            session.add(
+                Edge(
+                    source_type=source_type,
+                    source_id=source_id,
+                    target_type=target_type,
+                    target_id=target_id,
+                    relationship_=relationship,
+                )
+            )
+            session.commit()
 
     def index_session_fts(self, session_id: str, content: str) -> None:
-        conn = self._conn()
-        conn.execute(
-            "INSERT INTO sessions_fts (session_id, content) VALUES (?, ?)",
-            (session_id, content),
-        )
-        conn.commit()
-        conn.close()
+        """Index session content for full-text search (SQLite FTS5 only)."""
+        if self._dialect != "sqlite":
+            return
+        with self._session() as session:
+            session.execute(
+                text("INSERT INTO sessions_fts (session_id, content) VALUES (:sid, :content)"),
+                {"sid": session_id, "content": content},
+            )
+            session.commit()
 
     # ── Delete ──────────────────────────────────────────────────────
 
     def delete_session(self, session_id: str) -> bool:
         """Cascading delete of a session and all related data."""
-        conn = self._conn()
-        # Check existence first
-        row = conn.execute("SELECT id FROM sessions WHERE id = ?", (session_id,)).fetchone()
-        if not row:
-            conn.close()
-            return False
+        with self._session() as session:
+            s = session.get(SessionModel, session_id)
+            if not s:
+                return False
 
-        conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        conn.execute("DELETE FROM enrichments WHERE session_id = ?", (session_id,))
-        conn.execute("DELETE FROM annotations WHERE session_id = ?", (session_id,))
-        conn.execute(
-            "DELETE FROM edges WHERE source_type = 'session' AND source_id = ?",
-            (session_id,),
-        )
-        # FTS5 contentless table: delete by rowid via session_id match
-        conn.execute("DELETE FROM sessions_fts WHERE session_id = ?", (session_id,))
-        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        conn.commit()
-        conn.close()
+            session.execute(delete(Message).where(Message.session_id == session_id))
+            session.execute(delete(Enrichment).where(Enrichment.session_id == session_id))
+            session.execute(delete(Annotation).where(Annotation.session_id == session_id))
+            session.execute(
+                delete(Edge).where(Edge.source_type == "session", Edge.source_id == session_id)
+            )
+            if self._dialect == "sqlite":
+                session.execute(
+                    text("DELETE FROM sessions_fts WHERE session_id = :sid"),
+                    {"sid": session_id},
+                )
+            session.execute(delete(SessionModel).where(SessionModel.id == session_id))
+            session.commit()
 
         # Remove from search backend
         try:
@@ -709,107 +814,121 @@ class QueryAPI:
         data = self.get_session(session_id, detail="messages")
         if not data:
             return None
-        conn = self._conn()
-        edges = conn.execute(
-            "SELECT * FROM edges WHERE source_type = 'session' AND source_id = ?",
-            (session_id,),
-        ).fetchall()
-        conn.close()
-        data["edges"] = [dict(e) for e in edges]
-        # Server expects enrichments as list[dict] with source/key/value fields
+
+        with self._session() as session:
+            edges = (
+                session.execute(
+                    select(Edge).where(Edge.source_type == "session", Edge.source_id == session_id)
+                )
+                .scalars()
+                .all()
+            )
+            data["edges"] = [
+                {
+                    "source_type": e.source_type,
+                    "source_id": e.source_id,
+                    "target_type": e.target_type,
+                    "target_id": e.target_id,
+                    "relationship": e.relationship_,
+                    "created_at": e.created_at,
+                }
+                for e in edges
+            ]
         data["enrichments"] = data.pop("enrichments_raw", [])
         return data
 
     def import_session(self, payload: dict[str, Any]) -> None:
         """Import a full session payload (from a client push). Handles re-push."""
         session_id = payload["id"]
-        conn = self._conn()
 
-        # Clear existing data for this session (handles re-push)
-        conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-        conn.execute("DELETE FROM enrichments WHERE session_id = ?", (session_id,))
-        conn.execute("DELETE FROM annotations WHERE session_id = ?", (session_id,))
-        conn.execute(
-            "DELETE FROM edges WHERE source_type = 'session' AND source_id = ?",
-            (session_id,),
-        )
-        conn.execute("DELETE FROM sessions_fts WHERE session_id = ?", (session_id,))
-        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        with self._session() as session:
+            # Clear existing data for re-push
+            session.execute(delete(Message).where(Message.session_id == session_id))
+            session.execute(delete(Enrichment).where(Enrichment.session_id == session_id))
+            session.execute(delete(Annotation).where(Annotation.session_id == session_id))
+            session.execute(
+                delete(Edge).where(Edge.source_type == "session", Edge.source_id == session_id)
+            )
+            if self._dialect == "sqlite":
+                session.execute(
+                    text("DELETE FROM sessions_fts WHERE session_id = :sid"),
+                    {"sid": session_id},
+                )
+            session.execute(delete(SessionModel).where(SessionModel.id == session_id))
 
-        # Insert session
-        conn.execute(
-            """
-            INSERT INTO sessions (id, source, project_path, author, started_at, ended_at, message_count, summary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                session_id,
-                payload.get("source", ""),
-                payload.get("project_path"),
-                payload.get("author"),
-                payload.get("started_at"),
-                payload.get("ended_at"),
-                payload.get("message_count", 0),
-                payload.get("summary"),
-            ),
-        )
-
-        # Insert messages
-        for msg in payload.get("messages", []):
-            conn.execute(
-                """
-                INSERT INTO messages (session_id, ordinal, role, content, tool_name, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    session_id,
-                    msg.get("ordinal", 0),
-                    msg.get("role", "human"),
-                    msg.get("content"),
-                    msg.get("tool_name"),
-                    msg.get("timestamp"),
-                ),
+            # Insert session
+            session.add(
+                SessionModel(
+                    id=session_id,
+                    source=payload.get("source", ""),
+                    project_path=payload.get("project_path"),
+                    author=payload.get("author"),
+                    started_at=payload.get("started_at"),
+                    ended_at=payload.get("ended_at"),
+                    message_count=payload.get("message_count", 0),
+                    summary=payload.get("summary"),
+                )
             )
 
-        # Insert enrichments
-        for e in payload.get("enrichments", []):
-            conn.execute(
-                "INSERT INTO enrichments (session_id, source, key, value) VALUES (?, ?, ?, ?)",
-                (session_id, e.get("source", ""), e.get("key", ""), e.get("value")),
-            )
+            for msg in payload.get("messages", []):
+                session.add(
+                    Message(
+                        session_id=session_id,
+                        ordinal=msg.get("ordinal", 0),
+                        role=msg.get("role", "human"),
+                        content=msg.get("content"),
+                        tool_name=msg.get("tool_name"),
+                        timestamp=msg.get("timestamp"),
+                    )
+                )
 
-        # Insert annotations
-        for a in payload.get("annotations", []):
-            conn.execute(
-                "INSERT INTO annotations (session_id, type, value, author) VALUES (?, ?, ?, ?)",
-                (session_id, a.get("type", "tag"), a.get("value", ""), a.get("author")),
-            )
+            for e in payload.get("enrichments", []):
+                session.add(
+                    Enrichment(
+                        session_id=session_id,
+                        source=e.get("source", ""),
+                        key=e.get("key", ""),
+                        value=e.get("value"),
+                    )
+                )
 
-        # Insert edges
-        for edge in payload.get("edges", []):
-            conn.execute(
-                "INSERT INTO edges (source_type, source_id, target_type, target_id, relationship) VALUES (?, ?, ?, ?, ?)",
-                (
-                    edge.get("source_type", ""),
-                    edge.get("source_id", ""),
-                    edge.get("target_type", ""),
-                    edge.get("target_id", ""),
-                    edge.get("relationship", ""),
-                ),
-            )
+            for a in payload.get("annotations", []):
+                session.add(
+                    Annotation(
+                        session_id=session_id,
+                        type=a.get("type", "tag"),
+                        value=a.get("value", ""),
+                        author=a.get("author"),
+                    )
+                )
 
-        # Index for FTS
-        fts_parts = [
-            msg.get("content", "") for msg in payload.get("messages", []) if msg.get("content")
-        ]
-        if fts_parts:
-            conn.execute(
-                "INSERT INTO sessions_fts (session_id, content) VALUES (?, ?)",
-                (session_id, "\n".join(fts_parts)),
-            )
+            for edge in payload.get("edges", []):
+                session.add(
+                    Edge(
+                        source_type=edge.get("source_type", ""),
+                        source_id=edge.get("source_id", ""),
+                        target_type=edge.get("target_type", ""),
+                        target_id=edge.get("target_id", ""),
+                        relationship_=edge.get("relationship", ""),
+                    )
+                )
 
-        conn.commit()
-        conn.close()
+            # FTS index
+            if self._dialect == "sqlite":
+                fts_parts = [
+                    msg.get("content", "")
+                    for msg in payload.get("messages", [])
+                    if msg.get("content")
+                ]
+                if fts_parts:
+                    session.execute(
+                        text(
+                            "INSERT INTO sessions_fts (session_id, content) VALUES (:sid, :content)"
+                        ),
+                        {"sid": session_id, "content": "\n".join(fts_parts)},
+                    )
+
+            session.commit()
 
         # Index in search backend
         try:
@@ -831,3 +950,17 @@ class QueryAPI:
                     backend.trigger_index(limit=1)
         except Exception:
             pass
+
+
+def _session_to_dict(s: SessionModel) -> dict[str, Any]:
+    """Convert a Session ORM object to a plain dict."""
+    return {
+        "id": s.id,
+        "source": s.source,
+        "project_path": s.project_path,
+        "author": s.author,
+        "started_at": s.started_at,
+        "ended_at": s.ended_at,
+        "message_count": s.message_count,
+        "summary": s.summary,
+    }

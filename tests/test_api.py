@@ -26,8 +26,7 @@ def _test_config(db_path: Path) -> Config:
 def client(tmp_path: Path) -> TestClient:
     """Create a TestClient backed by a temporary database."""
     db_path = tmp_path / "api_test.db"
-    conn = init_db(db_path=db_path)
-    conn.close()
+    init_db(db_path=db_path)
     cfg = _test_config(db_path)
     app = create_app(config=cfg, db_path=db_path)
     return TestClient(app)
@@ -37,8 +36,7 @@ def client(tmp_path: Path) -> TestClient:
 def seeded_client(tmp_path: Path, sample_payload: dict) -> TestClient:
     """Create a TestClient with one session already imported."""
     db_path = tmp_path / "api_seeded.db"
-    conn = init_db(db_path=db_path)
-    conn.close()
+    init_db(db_path=db_path)
     cfg = _test_config(db_path)
     api = QueryAPI(config=cfg, db_path=db_path)
     api.import_session(sample_payload)

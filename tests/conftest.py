@@ -15,8 +15,7 @@ from hive.store.query import QueryAPI
 def tmp_db(tmp_path: Path):
     """Create a temporary SQLite database, yield its path, and clean up."""
     db_path = tmp_path / "test_store.db"
-    conn = init_db(db_path=db_path)
-    conn.close()
+    init_db(db_path=db_path)
     yield db_path
     # cleanup handled by tmp_path
 

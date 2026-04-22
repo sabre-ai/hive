@@ -30,6 +30,8 @@ dependencies = [
     "tomli-w>=1.0",
     "mcp>=1.0",
     "httpx>=0.27",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -57,4 +59,4 @@ hive = "hive.cli:cli"
 where = ["src"]
 
 [tool.setuptools.package-data]
-hive = ["scrub_patterns.toml"]
+hive = ["scrub_patterns.toml", "store/alembic/*.py", "store/alembic/*.mako", "store/alembic/versions/*.py"]
