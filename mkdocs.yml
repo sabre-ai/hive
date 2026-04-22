@@ -118,23 +118,14 @@ extra:
 
 nav:
   - Home: index.md
-  - Getting Started:
-    - Overview: getting-started/index.md
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quickstart.md
-    - Configuration: getting-started/configuration.md
-    - Your First Session: getting-started/first-session.md
-  - Usage:
-    - Overview: usage/index.md
-    - Daily Workflow: usage/workflow.md
-    - Searching Your History: usage/searching-your-history.md
-    - Asking Claude About Your Work: usage/asking-claude.md
-    - Setting Up the Team Server: usage/server-setup.md
-    - Onboarding Teammates: usage/onboarding-teammates.md
-    - Sharing Controls: usage/sharing-controls.md
-    - Secret Scrubbing: usage/secret-scrubbing.md
+  - Getting Started: getting-started/index.md
   - Tutorials:
     - Overview: tutorials/index.md
+    - Daily Workflow: tutorials/workflow.md
+    - Searching Your History: tutorials/searching.md
+    - Asking Claude: tutorials/asking-claude.md
+    - Sharing Controls: tutorials/sharing-controls.md
+    - Secret Scrubbing: tutorials/secret-scrubbing.md
     - File Lineage: tutorials/file-lineage.md
     - Annotating Sessions: tutorials/annotating-sessions.md
     - Writing a Custom Enricher: tutorials/custom-enricher.md

@@ -76,7 +76,7 @@ Find sessions by content:
 hive search "auth middleware"
 ```
 
-This uses FTS5 full-text search (or sqlite-vec semantic search if installed). See [Searching Your History](searching-your-history.md) for advanced query syntax.
+This uses FTS5 full-text search (or sqlite-vec semantic search if installed). See [Searching Your History](searching.md) for advanced query syntax.
 
 ## Ask Claude About Past Work
 
