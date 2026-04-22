@@ -80,7 +80,7 @@ def init(project: str):
         from hive.capture.claude_code import ClaudeCodeAdapter
 
         adapter = ClaudeCodeAdapter()
-        count = adapter.backfill()
+        count = adapter.backfill(project=project_path)
         console.print(f"[green]✓[/green] ({count} sessions)")
     except Exception as e:
         console.print(f"[yellow]skipped[/yellow] ({e})")
