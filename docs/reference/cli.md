@@ -207,6 +207,55 @@ hive tag abc123def456 "needs-review"
 
 ---
 
+### `hive import`
+
+Import a conversation from a file or stdin. Used for capturing Claude Desktop sessions or any external conversation.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--file PATH` | stdin | Path to conversation file (JSON or Markdown) |
+| `--title TEXT` | Auto-generated | Session title/summary |
+| `--project PATH` | None | Associated project path |
+| `--tag TAG` | None | Tags to apply (repeatable) |
+| `--source NAME` | `claude_desktop` | Source adapter name |
+| `--author NAME` | None | Author name |
+
+```bash
+# Import from a file
+hive import --file design.md --title "Auth design" --tag auth
+
+# Pipe from stdin
+cat conversation.md | hive import --title "Feature brainstorm"
+
+# Import with project association
+hive import --file notes.json --project ~/code/my-app --tag design
+```
+
+Accepts two content formats:
+
+- **JSON**: Array of `[{"role": "human", "content": "..."}, ...]`
+- **Text**: Lines prefixed with `Human:` or `Assistant:` markers
+
+---
+
+### `hive link <source_session> <target_session>`
+
+Create a lineage link between two sessions. Used to connect design sessions (Claude Desktop) to implementation sessions (Claude Code).
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-r, --relationship TYPE` | `references` | One of: `implements`, `continues`, `references`, `refines` |
+
+```bash
+# Link a design session to its implementation
+hive link abc123 def456 -r implements
+
+# Mark a session as continuing prior work
+hive link abc123 def456 -r continues
+```
+
+---
+
 ### `hive delete <session_id>`
 
 Delete a session and all related data (messages, enrichments, annotations, edges) from the local store.

@@ -187,9 +187,13 @@ def _offer_mcp_setup():
     if not hive_bin:
         hive_bin = "hive"
 
-    console.print("    Run this command to register hive with Claude Code:")
-    console.print(f"    [bold]claude mcp add --transport stdio hive -- {hive_bin} mcp[/bold]")
+    console.print("    [bold]Claude Code:[/bold]")
+    console.print(f"    claude mcp add --transport stdio hive -- {hive_bin} mcp")
     console.print("    Then restart Claude Code and verify with /mcp")
+    console.print()
+    console.print("    [bold]Claude Desktop (optional):[/bold]")
+    console.print("    Add to ~/Library/Application Support/Claude/claude_desktop_config.json:")
+    console.print(f'    {{"mcpServers": {{"hive": {{"command": "{hive_bin}", "args": ["mcp"]}}}}}}')
 
 
 # ── config ─────────────────────────────────────────────────────────
@@ -529,6 +533,82 @@ def tag(session_id: str, tag_value: str):
     api = QueryAPI()
     api.write_annotation(session_id, "tag", tag_value)
     console.print(f"[green]Tagged {session_id[:12]} with '{tag_value}'[/green]")
+
+
+# ── import ─────────────────────────────────────────────────────────
+
+
+@cli.command(name="import")
+@click.option("--file", "file_path", type=click.Path(exists=True), help="Import from file")
+@click.option("--title", help="Session title/summary")
+@click.option("--project", help="Associated project path")
+@click.option("--tag", multiple=True, help="Tags to apply")
+@click.option("--source", default="claude_desktop", help="Source adapter name")
+@click.option("--author", help="Author name")
+def import_cmd(
+    file_path: str | None,
+    title: str | None,
+    project: str | None,
+    tag: tuple[str, ...],
+    source: str,
+    author: str | None,
+):
+    """Import a conversation from file or stdin."""
+    from hive.capture.claude_desktop import ClaudeDesktopAdapter
+
+    if file_path:
+        content = Path(file_path).read_text()
+    elif not sys.stdin.isatty():
+        content = sys.stdin.read()
+    else:
+        console.print("[red]Provide --file or pipe content via stdin.[/red]")
+        return
+
+    if not content.strip():
+        console.print("[red]No content to import.[/red]")
+        return
+
+    adapter = ClaudeDesktopAdapter()
+    data = {
+        "content": content,
+        "title": title or "",
+        "project": str(Path(project).resolve()) if project else None,
+        "tags": list(tag),
+        "author": author,
+    }
+    session_id = adapter._ingest(data)
+    console.print(f"[green]Imported session {session_id[:12]}[/green]")
+    console.print(f"  Source: {source}")
+    if title:
+        console.print(f"  Title: {title}")
+    if tag:
+        console.print(f"  Tags: {', '.join(tag)}")
+
+
+# ── link ──────────────────────────────────────────────────────────
+
+
+_VALID_RELATIONSHIPS = ("implements", "continues", "references", "refines")
+
+
+@cli.command()
+@click.argument("source_session_id")
+@click.argument("target_session_id")
+@click.option(
+    "-r",
+    "--relationship",
+    default="references",
+    type=click.Choice(_VALID_RELATIONSHIPS),
+    help="Relationship type",
+)
+def link(source_session_id: str, target_session_id: str, relationship: str):
+    """Create a lineage link between two sessions."""
+    api = QueryAPI()
+    api.insert_edge("session", source_session_id, "session", target_session_id, relationship)
+    console.print(
+        f"[green]Linked {source_session_id[:12]} --({relationship})--> "
+        f"{target_session_id[:12]}[/green]"
+    )
 
 
 # ── delete ─────────────────────────────────────────────────────────

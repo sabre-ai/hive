@@ -11,25 +11,45 @@ The hive MCP server exposes session data to AI assistants over the stdio transpo
 
 ## Setup
 
-Register hive as an MCP server with Claude Code:
+=== "Claude Code"
 
-```bash
-claude mcp add --transport stdio hive -- hive mcp
-```
+    ```bash
+    claude mcp add --scope user --transport stdio hive -- hive mcp
+    ```
 
-If using a venv or pipx, use the full path to the binary:
+    If using a venv or pipx, use the full path to the binary:
 
-```bash
-claude mcp add --transport stdio hive -- /path/to/venv/bin/hive mcp
-```
+    ```bash
+    claude mcp add --scope user --transport stdio hive -- /path/to/venv/bin/hive mcp
+    ```
 
-To make it available across all projects:
+    Start a new Claude Code session and run `/mcp` to verify -- you should see `hive · connected`.
 
-```bash
-claude mcp add --scope user --transport stdio hive -- hive mcp
-```
+=== "Claude Desktop"
 
-Start a new Claude Code session and run `/mcp` to verify -- you should see `hive · connected`.
+    Install hive via pipx:
+
+    ```bash
+    pipx install hive-team
+    ```
+
+    Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "hive": {
+          "command": "/Users/YOUR_USERNAME/.local/pipx/venvs/hive-team/bin/python",
+          "args": ["-m", "hive.cli", "mcp"]
+        }
+      }
+    }
+    ```
+
+    Restart Claude Desktop. The same MCP server serves both Claude Code and Claude Desktop.
+
+    !!! warning "macOS sandbox"
+        Claude Desktop cannot access files in `~/Documents/`. Use `pipx install` (not editable `pip install -e`) so hive is fully installed under `~/.local/`.
 
 ## Tools
 
@@ -101,11 +121,14 @@ Returns `{"error": "Session not found"}` if the ID does not exist.
 
 ### lineage
 
-Return the lineage graph for a file -- every session that read or modified it, along with related commits.
+Return the lineage graph for a file or session. For files: every session that read or modified it. For sessions: linked sessions, files, and commits.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `file_path` | string | yes | Absolute or project-relative file path |
+| `file_path` | string | no | Absolute or project-relative file path |
+| `session_id` | string | no | Session ID to get lineage for (alternative to file_path) |
+
+Provide either `file_path` or `session_id`.
 
 ```json
 [
@@ -186,6 +209,49 @@ Delete a session and all its related data from the server.
 ```
 
 Returns a 404 error if the session does not exist.
+
+### capture_session
+
+Save a conversation to hive. Designed for use from Claude Desktop -- when the user asks to save or capture a discussion, Claude calls this tool.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `title` | string | yes | Brief title for this session |
+| `content` | string | yes | The conversation content to save |
+| `project` | string | no | Project path this relates to |
+| `tags` | array of strings | no | Tags to categorize this session |
+
+```json
+{"session_id": "4f1b6d28-...", "status": "captured"}
+```
+
+Sessions captured this way have `source = "claude_desktop"`.
+
+### link_sessions
+
+Create a lineage link between two sessions. Use this when referencing or building upon work from another session -- especially when implementing a design from a Claude Desktop session.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `source_session_id` | string | yes | The session being referenced (e.g. the design session) |
+| `target_session_id` | string | yes | The session doing the referencing (e.g. the implementation session) |
+| `relationship` | string | yes | One of: `"implements"`, `"continues"`, `"references"`, `"refines"` |
+
+```json
+{"linked": true, "source_session_id": "...", "target_session_id": "...", "relationship": "implements"}
+```
+
+### current_session
+
+Return the most recent hive session for the current project. Useful for getting the current session ID when creating links.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `project` | string | no | Project path (defaults to current working directory) |
+
+```json
+{"session_id": "abc123-...", "source": "claude_code", "started_at": "2026-04-20T14:30:00", "summary": "..."}
+```
 
 ## Common Filters
 

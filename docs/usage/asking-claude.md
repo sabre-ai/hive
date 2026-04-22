@@ -16,7 +16,7 @@ Restart Claude Code and verify:
 /mcp
 ```
 
-You should see `hive` listed with 6 available tools.
+You should see `hive` listed with 9 available tools.
 
 !!! info "No server needed"
     In solo mode, the MCP server uses `LocalBackend` to read directly from `~/.local/share/hive/store.db`. The `Config.is_solo` property detects this by checking whether `server_url` points to `localhost`, `127.0.0.1`, or `::1`. You do **not** need to run `hive serve`.
@@ -79,16 +79,19 @@ Claude calls `lineage` with the file path and returns every session that read or
 
 Claude calls `recent` to get the sessions, then `get_session` for each to read the conversations, and synthesizes a comparison.
 
-## The 6 MCP Tools
+## The 9 MCP Tools
 
 | Tool | Description | Key Parameters |
 |---|---|---|
 | `search` | Full-text search across sessions | `query`, `project`, `author`, `since` |
 | `get_session` | Retrieve full session data | `session_id`, `detail`, `role`, `limit`, `offset` |
-| `lineage` | File lineage graph | `file_path` |
+| `lineage` | File or session lineage graph | `file_path` or `session_id` |
 | `recent` | List recent sessions | `project`, `author`, `n`, `sort_by`, `min_tokens`, `model`, `min_correction_rate` |
 | `stats` | Aggregated statistics | `project`, `since`, `group_by` |
 | `delete` | Delete a session | `session_id` |
+| `capture_session` | Save a conversation to hive | `title`, `content`, `project`, `tags` |
+| `link_sessions` | Link two sessions (design to implementation) | `source_session_id`, `target_session_id`, `relationship` |
+| `current_session` | Get the most recent session ID | `project` |
 
 ### Filtering with `recent`
 

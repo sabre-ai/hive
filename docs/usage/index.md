@@ -87,6 +87,77 @@ server_url = "http://team-server:3000"
 sharing = "on"
 ```
 
+## Capturing Claude Desktop Sessions
+
+Hive can also capture conversations from **Claude Desktop** (the Mac/Windows app). This is useful when you brainstorm or design features in Claude Desktop and then implement them in Claude Code.
+
+### Setup
+
+Install hive with pipx (if not already installed):
+
+```bash
+pipx install hive-team
+```
+
+Then add hive as an MCP server in Claude Desktop by editing `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "hive": {
+      "command": "/Users/YOUR_USERNAME/.local/pipx/venvs/hive-team/bin/python",
+      "args": ["-m", "hive.cli", "mcp"]
+    }
+  }
+}
+```
+
+!!! warning "macOS sandbox"
+    Claude Desktop is sandboxed by macOS and cannot access files in `~/Documents/`. Always use a `pipx install` (not editable `pip install -e`) so hive is fully installed under `~/.local/` which is not sandboxed.
+
+### Capturing a conversation
+
+At the end of a design discussion in Claude Desktop, say:
+
+```
+Save this conversation to hive
+```
+
+Claude calls the `capture_session` MCP tool and the conversation is stored in your local database with source `claude_desktop`.
+
+### Importing from a file
+
+You can also import conversations via the CLI:
+
+```bash
+hive import --file conversation.md --title "Auth design" --tag design
+```
+
+Or pipe from stdin:
+
+```bash
+cat design-notes.md | hive import --title "Auth design"
+```
+
+## Cross-Tool Lineage
+
+Hive tracks lineage between sessions across tools. When Claude Code references a Claude Desktop design session during implementation, it automatically creates a link between the two sessions.
+
+The flow:
+
+1. **Design** in Claude Desktop -- save to hive
+2. **Implement** in Claude Code -- say "implement the auth design I brainstormed"
+3. Claude Code searches hive, finds the design session, reads it, and calls `link_sessions` to connect them
+4. Run `hive lineage` on either session to see the full design-to-implementation chain
+
+You can also create links manually:
+
+```bash
+hive link <design-session-id> <implementation-session-id> -r implements
+```
+
+Supported relationship types: `implements`, `continues`, `references`, `refines`.
+
 ## Subpages
 
 - [Daily Workflow](workflow.md) -- day-to-day patterns for using hive
