@@ -150,6 +150,14 @@ hive log                                                    # see team sessions
 
 Sessions auto-push to the server in the background. Secrets are scrubbed client-side before leaving the laptop.
 
+**Backfill existing sessions:** If you already have local sessions from before connecting to the server, push them in one go:
+
+```bash
+hive push                          # push all local sessions
+hive push --project your-project   # push only one project
+hive push --dry-run                # preview what would be pushed
+```
+
 You now have shared, searchable AI coding history for your team.
 
 ---

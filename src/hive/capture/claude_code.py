@@ -49,6 +49,10 @@ class ClaudeCodeAdapter(CaptureAdapter):
             logger.debug("Ignoring unknown event %s", event_name)
             return
 
+        # Claude Code hooks send "cwd"; normalise to "project_path" for internal use.
+        if "project_path" not in data and "cwd" in data:
+            data["project_path"] = data["cwd"]
+
         handler = {
             "SessionStart": self._on_session_start,
             "Stop": self._on_stop,
@@ -216,7 +220,9 @@ class ClaudeCodeAdapter(CaptureAdapter):
                 except Exception:
                     logger.debug("Failed to push session %s to server", session_id)
 
-            threading.Thread(target=_do_push, daemon=True).start()
+            t = threading.Thread(target=_do_push, daemon=False)
+            t.start()
+            t.join(timeout=30)
         except Exception:
             logger.debug("Error in _maybe_push for session %s", session_id)
 
