@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from hive.config import HIVE_DIR, Config
+from hive.config import Config
 from hive.store.db import init_db
 from hive.store.query import QueryAPI
 
@@ -42,8 +42,11 @@ def init(project: str):
     console.print("[green]✓[/green]")
 
     # 2. Create default config if missing
-    config_path = HIVE_DIR / "config.toml"
+    from hive.config import HIVE_CONFIG_DIR
+
+    config_path = HIVE_CONFIG_DIR / "config.toml"
     if not config_path.exists():
+        HIVE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         config_path.write_text(
             '# hive configuration\n# watch_path = "~/.claude/projects/"\n# server_port = 3000\n'
         )
@@ -98,7 +101,12 @@ def _install_claude_hooks(project_path: Path):
     console.print("  Installing Claude Code hooks...", end=" ")
 
     # Resolve the absolute path to the hive binary so hooks work outside the venv
-    hive_bin = shutil.which("hive") or sys.executable.replace("python", "hive")
+    hive_bin = shutil.which("hive")
+    if not hive_bin:
+        # Fallback: look for 'hive' next to the current Python executable
+        bin_dir = Path(sys.executable).parent
+        candidate = bin_dir / "hive"
+        hive_bin = str(candidate) if candidate.exists() else "hive"
 
     settings_dir = project_path / ".claude"
     settings_dir.mkdir(exist_ok=True)
@@ -133,6 +141,7 @@ def _install_claude_hooks(project_path: Path):
                 ]
                 if non_hive:
                     cleaned.append({**group, "hooks": non_hive})
+                # Drop groups that become empty after removing hive hooks
             else:
                 cleaned.append(group)
         # Add fresh hive hooks

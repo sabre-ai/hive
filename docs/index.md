@@ -66,7 +66,7 @@ Hive captures every Claude Code session from every developer, enriches each one 
     claude mcp add --scope user --transport stdio hive -- hive mcp
     ```
 
-    See [Team Mode → Server Setup](team-mode/server-setup.md) for the server side.
+    See [Server Setup](usage/server-setup.md) for the server side.
 
 ## How it works
 
@@ -82,6 +82,5 @@ flowchart LR
 
 ## Get involved
 
-- [Roadmap](roadmap.md) — what's coming next
 - [Contributing](contributing.md) — how to add an enricher or capture adapter
 - [Security](security.md) — how we handle secrets
