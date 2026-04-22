@@ -6,67 +6,52 @@ hide:
 
 <div class="hive-hero" markdown>
 
-# Your team's AI coding history, searchable by Claude
+# **Hive** remembers every session you ship.
 
-Hive captures every Claude Code session from every developer, enriches each one with git and file context, and makes the team's collective history available through MCP — so Claude can answer *"how did we solve this last time?"*
+Every Claude Code run, every Claude Desktop thread — captured to one searchable history. Solo by default, your team when you're ready.
 
 [Get started :material-arrow-right:](getting-started/index.md){ .md-button .md-button--primary }
 [View on GitHub :fontawesome-brands-github:](https://github.com/sabre-ai/hive){ .md-button }
 
 </div>
 
-## Why hive?
+## What Hive does
 
 <div class="grid cards" markdown>
 
-- :material-record-rec:{ .lg .middle } __Capture automatically__
+- :material-record-rec:{ .lg .middle } __Session capture__
 
     ---
 
-    Claude Code hooks record every session into local SQLite. Zero effort per session.
+    Claude Code SessionStart / SessionEnd hooks persist prompts, tool calls, and outputs to a local store. Nothing to configure per-session.
 
-- :material-account-group:{ .lg .middle } __Share with your team__
+    `claude-code · hooks`
 
-    ---
-
-    One config flip auto-pushes sessions to a shared server. Client-side secret scrubbing means nothing sensitive leaves the laptop.
-
-- :material-robot-outline:{ .lg .middle } __Queryable via Claude__
+- :material-robot-outline:{ .lg .middle } __MCP surface__
 
     ---
 
-    Hive is a first-class MCP server. Ask Claude *"what did we decide about auth?"* and it searches the team's history.
+    Both capture and query happen over MCP. Claude Desktop reads and writes to the same store as Code through a single server endpoint.
 
-- :material-source-branch:{ .lg .middle } __Git-aware lineage__
+    `claude-desktop · mcp`
+
+- :material-server-network:{ .lg .middle } __Self-hosted team mode__
 
     ---
 
-    Every session links to the commits it produced and the files it touched. Walk the graph from a file back to the conversation that created it.
+    `hive serve` exposes the store over HTTP. SQLite-backed, Apache 2.0, no SaaS dependency. Secret scrubbing runs before any write crosses the wire.
+
+    `hive serve · sqlite`
+
+- :material-source-branch:{ .lg .middle } __Git-aware indexing__
+
+    ---
+
+    Sessions are tagged with branch, commit, and PR number. Queries can be filtered by any of these; lineage survives rebases.
+
+    `branch · commit · pr`
 
 </div>
-
-## Quickstart
-
-=== "Solo mode"
-
-    ```bash
-    pipx install hive-team
-    cd your-project
-    hive init
-    hive serve
-    ```
-
-=== "Team mode"
-
-    ```bash
-    # On each developer's machine
-    pipx install hive-team
-    hive init
-    hive config sharing on
-    claude mcp add --scope user --transport stdio hive -- hive mcp
-    ```
-
-    See [Getting Started](getting-started/index.md#stage-3-team-server) for the server side.
 
 ## How it works
 
@@ -82,5 +67,8 @@ flowchart LR
 
 ## Get involved
 
-- [Contributing](contributing.md) — how to add an enricher or capture adapter
+- [Contributing](contributing.md) — adapters, enrichers, and more
 - [Security](security.md) — how we handle secrets
+- [GitHub](https://github.com/sabre-ai/hive) — issues, discussions, PRs welcome
+
+**Apache 2.0** — self-host, fork, audit. The server, the scrubber, and the MCP surface are all in-repo.

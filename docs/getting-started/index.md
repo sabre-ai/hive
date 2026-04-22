@@ -6,9 +6,20 @@ This guide walks you through three stages. Each one builds on the last — stop 
 
 Install hive and capture your first session. Everything stays on your local machine.
 
-```bash
-pipx install hive-team
-```
+=== "pipx (recommended)"
+
+    ```bash
+    pipx install hive-team
+    ```
+
+=== "From source"
+
+    ```bash
+    git clone https://github.com/sabre-ai/hive.git
+    cd hive
+    python3 -m venv .venv && source .venv/bin/activate
+    pip install -e .
+    ```
 
 Initialize hive in any project:
 
