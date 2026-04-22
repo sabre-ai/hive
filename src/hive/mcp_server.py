@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from typing import Any, Protocol
 
 import httpx
@@ -256,6 +257,17 @@ class RemoteBackend:
 # ── Lazy init ──────────────────────────────────────────────────────
 
 _backend: LocalBackend | RemoteBackend | None = None
+_default_project: str | None = None
+
+
+def _resolve_project(arguments: dict[str, Any]) -> str | None:
+    """Determine the project filter for a query.
+
+    Priority: all_projects=True -> None, explicit project -> use it, else cwd.
+    """
+    if arguments.get("all_projects"):
+        return None
+    return arguments.get("project") or _default_project
 
 
 def _get_backend() -> LocalBackend | RemoteBackend:
@@ -281,14 +293,22 @@ TOOLS: list[Tool] = [
     Tool(
         name="search",
         description=(
-            "Full-text search across all captured AI coding sessions. "
+            "Full-text search across captured AI coding sessions. "
+            "Scoped to the current project by default. "
             "Returns matching sessions with highlighted snippets."
         ),
         inputSchema={
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Search query."},
-                "project": {"type": "string", "description": "Filter by project path substring."},
+                "project": {
+                    "type": "string",
+                    "description": "Filter by project path (defaults to current working directory).",
+                },
+                "all_projects": {
+                    "type": "boolean",
+                    "description": "Search across all projects instead of just the current one.",
+                },
                 "author": {"type": "string", "description": "Filter by author name."},
                 "since": {"type": "string", "description": "ISO-8601 datetime lower bound."},
             },
@@ -347,11 +367,20 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         name="recent",
-        description="List the most recent captured sessions, optionally filtered by project or author.",
+        description=(
+            "List the most recent captured sessions. Scoped to the current project by default."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
-                "project": {"type": "string", "description": "Filter by project path substring."},
+                "project": {
+                    "type": "string",
+                    "description": "Filter by project path (defaults to current working directory).",
+                },
+                "all_projects": {
+                    "type": "boolean",
+                    "description": "Search across all projects instead of just the current one.",
+                },
                 "author": {"type": "string", "description": "Filter by author name."},
                 "n": {
                     "type": "integer",
@@ -377,12 +406,19 @@ TOOLS: list[Tool] = [
         name="stats",
         description=(
             "Return aggregated statistics: total sessions, message counts, "
-            "quality metrics, and date ranges."
+            "quality metrics, and date ranges. Scoped to the current project by default."
         ),
         inputSchema={
             "type": "object",
             "properties": {
-                "project": {"type": "string", "description": "Filter by project path substring."},
+                "project": {
+                    "type": "string",
+                    "description": "Filter by project path (defaults to current working directory).",
+                },
+                "all_projects": {
+                    "type": "boolean",
+                    "description": "Search across all projects instead of just the current one.",
+                },
                 "since": {"type": "string", "description": "ISO-8601 datetime lower bound."},
                 "group_by": {
                     "type": "string",
@@ -417,7 +453,10 @@ TOOLS: list[Tool] = [
                     "type": "string",
                     "description": "The conversation content to save.",
                 },
-                "project": {"type": "string", "description": "Project path this relates to."},
+                "project": {
+                    "type": "string",
+                    "description": "Project path (defaults to current working directory).",
+                },
                 "tags": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -489,7 +528,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if name == "search":
             results = await backend.search(
                 query=arguments["query"],
-                project=arguments.get("project"),
+                project=_resolve_project(arguments),
                 author=arguments.get("author"),
                 since=arguments.get("since"),
             )
@@ -517,7 +556,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if name == "recent":
             n = min(arguments.get("n", 10), 100)
             sessions = await backend.recent(
-                project=arguments.get("project"),
+                project=_resolve_project(arguments),
                 author=arguments.get("author"),
                 n=n,
                 sort_by=arguments.get("sort_by"),
@@ -529,7 +568,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         if name == "stats":
             stats = await backend.stats(
-                project=arguments.get("project"),
+                project=_resolve_project(arguments),
                 since=arguments.get("since"),
                 group_by=arguments.get("group_by"),
             )
@@ -547,7 +586,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 {
                     "title": arguments["title"],
                     "content": arguments["content"],
-                    "project": arguments.get("project"),
+                    "project": _resolve_project(arguments),
                     "tags": arguments.get("tags", []),
                 }
             )
@@ -575,7 +614,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
         if name == "current_session":
             sessions = await backend.recent(
-                project=arguments.get("project"),
+                project=_resolve_project(arguments),
                 n=1,
             )
             if sessions:
@@ -604,6 +643,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
 
 async def main() -> None:
+    global _default_project
+    _default_project = os.getcwd()
+    logger.info("MCP: auto-detected project scope: %s", _default_project)
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
