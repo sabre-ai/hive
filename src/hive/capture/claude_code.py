@@ -258,13 +258,16 @@ class ClaudeCodeAdapter(CaptureAdapter):
 
     # ── Backfill ─────────────────────────────────────────────────────
 
-    def backfill(self, root: Path | None = None) -> int:
+    def backfill(self, root: Path | None = None, project: Path | None = None) -> int:
         """Scan existing JSONL transcripts and import any unknown sessions.
 
         Parameters
         ----------
         root:
             Directory to scan.  Defaults to ``~/.claude/projects/``.
+        project:
+            If given, only import sessions whose working directory matches
+            this project path.
 
         Returns
         -------
@@ -275,6 +278,8 @@ class ClaudeCodeAdapter(CaptureAdapter):
         if not root.is_dir():
             logger.info("Watch path %s does not exist; nothing to backfill.", root)
             return 0
+
+        project_filter = str(project.resolve()) if project else None
 
         imported = 0
         for jsonl_file in sorted(root.rglob("*.jsonl")):
@@ -288,6 +293,10 @@ class ClaudeCodeAdapter(CaptureAdapter):
 
             meta = self._extract_metadata(jsonl_file)
             project_path = meta.get("cwd", str(jsonl_file.parent))
+
+            # Skip sessions that don't belong to the requested project
+            if project_filter and project_path != project_filter:
+                continue
             messages = self._parse_jsonl(session_id, jsonl_file)
             if not messages:
                 continue
