@@ -12,17 +12,12 @@ Each developer runs these steps once to connect to the team server and start sha
 
 ### 1. Install hive
 
-=== "pipx (recommended)"
-
-    ```bash
-    pipx install hive-team
-    ```
-
-=== "pip"
-
-    ```bash
-    pip install hive-team
-    ```
+```bash
+git clone https://github.com/sabre-ai/hive.git
+cd hive
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
 
 ### 2. Set the server URL
 
