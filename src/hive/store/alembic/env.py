@@ -57,12 +57,22 @@ def run_migrations_online() -> None:
         # Bootstrap: stamp existing v0.1.0 databases as already at head
         if _is_existing_hive_db(connection):
             logger.info("Detected pre-migration hive database, stamping as current")
-            context.configure(
-                connection=connection,
-                target_metadata=target_metadata,
-                render_as_batch=True,
+            # Get the head revision from the script directory
+            script = context.script
+            heads = script.get_heads()
+            head_rev = heads[0] if heads else "002"
+            # Manually create alembic_version and stamp
+            connection.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS alembic_version "
+                    "(version_num VARCHAR(32) NOT NULL, "
+                    "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+                )
             )
-            context.get_context().stamp(context.script, "head")
+            connection.execute(
+                text("INSERT INTO alembic_version (version_num) VALUES (:rev)"),
+                {"rev": head_rev},
+            )
             connection.commit()
             return
 
@@ -76,14 +86,12 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=True,  # Required for SQLite ALTER TABLE support
-            transaction_per_migration=True,
+            transaction_per_migration=(dialect_name != "sqlite"),
         )
 
         with context.begin_transaction():
             context.run_migrations()
-            # PostgreSQL requires explicit commit for DDL; SQLite auto-commits
-            if dialect_name != "sqlite":
-                connection.commit()
+            connection.commit()
 
 
 if context.is_offline_mode():

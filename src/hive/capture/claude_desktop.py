@@ -24,9 +24,10 @@ from hive.store.query import QueryAPI
 class ClaudeDesktopAdapter(CaptureAdapter):
     """Capture adapter for Claude Desktop conversations."""
 
-    def __init__(self, config: Config | None = None):
+    def __init__(self, config: Config | None = None, skip_init: bool = False):
         self._config = config or Config.load()
-        init_db(self._config)
+        if not skip_init:
+            init_db(self._config)
         self._api = QueryAPI(self._config)
 
     def name(self) -> str:
