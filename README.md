@@ -8,11 +8,11 @@
 
 Design decisions, debugging sessions, architecture discussions, code reviews — your AI conversations hold context that doesn't make it into commits or docs. Hive captures it all automatically and makes it searchable by Claude via MCP.
 
-**Solo:** Search your own history across Claude Code and Claude Desktop. *"What was that approach I tried last week?"*
+**Automatic cross-tool capture:** Claude Code and Claude Desktop conversations in one history, no setup per-session.
 
-**Cross-tool:** Link conversations across tools — a Claude Desktop design discussion connects to the Claude Code session that implemented it.
+**Searchable by Claude:** Ask about past decisions, designs, and debugging context across your full history.
 
-**Team:** Share sessions across your team so every developer's Claude can learn from everyone's work.
+**Solo to team:** Works on your laptop, scales to a shared server when you're ready.
 
 ## Quick Start
 
