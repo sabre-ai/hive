@@ -59,6 +59,9 @@ You now have automatic session capture, local search, and Claude can query your 
 
 Sessions from Claude Desktop brainstorms become searchable alongside your Claude Code sessions.
 
+!!! info "On-demand capture"
+    Claude Code sessions are captured **automatically** via hooks. Claude Desktop has no hook system, so capture is **on demand** — you ask Claude to save conversations worth keeping. This is by design: not every brainstorm belongs in your project history.
+
 Claude Desktop is sandboxed on macOS and cannot access `~/Documents/`. Install hive with pipx so the binary lives outside the sandbox:
 
 ```bash
@@ -81,13 +84,13 @@ Then add hive as an MCP server in `~/Library/Application Support/Claude/claude_d
 !!! note "Picking up source changes"
     Since this is a non-editable install, re-run `pipx install --force /path/to/hive` after making source changes to update the Claude Desktop copy.
 
-**Save a conversation:** At the end of a design discussion in Claude Desktop, say:
+**Save a conversation:** When a Desktop conversation is worth keeping, ask Claude:
 
 ```
 Save this conversation to hive
 ```
 
-Claude calls the `capture_session` tool and the conversation is stored with source `claude_desktop`.
+Claude calls the `capture_session` MCP tool and the conversation is stored with source `claude_desktop`.
 
 **Cross-tool lineage:** When Claude Code later references that design session during implementation, hive automatically links the two sessions. View the chain with:
 
@@ -188,6 +191,17 @@ You now have shared, searchable AI coding history for your team.
 
 ??? tip "Sessions not appearing on the team server"
     Run `hive config sharing on` and check `.hive/config.toml` has `sharing = "on"`. Verify the server URL with `curl`.
+
+## FAQ
+
+??? question "Does hive send any data off my machine in solo mode?"
+    **No.** In solo mode, everything stays local. Sessions are stored in `~/.local/share/hive/store.db` on your machine. No network calls, no telemetry, no phoning home. Data only leaves your laptop if you explicitly enable sharing to a team server (Stage 3).
+
+??? question "What's the difference between `store.db` and `server.db`?"
+    `store.db` is your **local** database — every captured session lives here. `server.db` only exists if you run a team server. When you opt in to sharing, sessions are pushed from your local `store.db` to the team `server.db`. In solo mode, `server.db` doesn't exist.
+
+??? question "Are my secrets safe?"
+    Hive scrubs secrets (API keys, tokens, passwords) from session content before storage using 25+ regex patterns. When sharing is enabled, scrubbing runs again before anything leaves your machine. See [Security & Privacy](../security.md) for details.
 
 ## Next Steps
 
