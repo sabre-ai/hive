@@ -107,12 +107,20 @@ class TestFactory:
         with pytest.raises(ValueError, match="Unknown search backend"):
             get_search_backend(config)
 
-    def test_pgvector_not_implemented(self):
+    def test_pgvector_requires_dsn(self):
         config = Config()
         config.search_backend = "pgvector"
+        with pytest.raises(ValueError, match="pgvector backend requires"):
+            get_search_backend(config)
+
+    def test_pgvector_instantiates_with_dsn(self):
+        from hive.search.pgvector import PgvectorBackend
+
+        config = Config()
+        config.search_backend = "pgvector"
+        config.db_url = "postgresql://hive:hive@localhost:5432/hive"
         backend = get_search_backend(config)
-        with pytest.raises(NotImplementedError):
-            backend.is_available()
+        assert isinstance(backend, PgvectorBackend)
 
     def test_elasticsearch_not_implemented(self):
         config = Config()
