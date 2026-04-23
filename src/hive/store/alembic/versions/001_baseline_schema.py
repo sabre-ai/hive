@@ -11,6 +11,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 revision: str = "001"
 down_revision: str | None = None
@@ -19,6 +20,11 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Skip if tables already exist (pre-migration database)
+    existing = set(inspect(op.get_bind()).get_table_names())
+    if "sessions" in existing:
+        return
+
     op.create_table(
         "sessions",
         sa.Column("id", sa.String(), nullable=False),

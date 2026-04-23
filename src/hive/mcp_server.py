@@ -635,7 +635,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if name == "capture_session":
             from hive.capture.claude_desktop import ClaudeDesktopAdapter
 
-            adapter = ClaudeDesktopAdapter()
+            adapter = ClaudeDesktopAdapter(skip_init=True)
             session_id = adapter._ingest(
                 {
                     "title": arguments["title"],
@@ -736,6 +736,11 @@ async def main() -> None:
     global _default_project
     _default_project = os.getcwd()
     logger.info("MCP: auto-detected project scope: %s", _default_project)
+
+    from hive.store.db import init_db
+
+    init_db()
+
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
