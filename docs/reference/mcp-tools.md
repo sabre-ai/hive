@@ -27,29 +27,26 @@ The hive MCP server exposes session data to AI assistants over the stdio transpo
 
 === "Claude Desktop"
 
-    Install hive via pipx:
+    Claude Desktop is sandboxed on macOS and cannot access `~/Documents/`. Install hive with pipx so the binary lives outside the sandbox:
 
     ```bash
-    pipx install hive-team
+    pipx install /path/to/hive   # use the directory where you cloned hive
     ```
 
-    Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+    Then add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
     ```json
     {
       "mcpServers": {
         "hive": {
-          "command": "/Users/YOUR_USERNAME/.local/pipx/venvs/hive-team/bin/python",
+          "command": "~/.local/pipx/venvs/hive-team/bin/python",
           "args": ["-m", "hive.cli", "mcp"]
         }
       }
     }
     ```
 
-    Restart Claude Desktop. The same MCP server serves both Claude Code and Claude Desktop.
-
-    !!! warning "macOS sandbox"
-        Claude Desktop cannot access files in `~/Documents/`. Use `pipx install` (not editable `pip install -e`) so hive is fully installed under `~/.local/`.
+    Restart Claude Desktop. Re-run `pipx install --force /path/to/hive` after source changes to update the Claude Desktop copy.
 
 ## Tools
 

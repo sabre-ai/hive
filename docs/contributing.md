@@ -9,7 +9,7 @@ cd hive
 # Python backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"  # package is hive-team on PyPI
+pip install -e ".[dev]"
 
 # Install pre-commit hooks
 pre-commit install
