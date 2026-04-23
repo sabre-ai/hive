@@ -6,7 +6,7 @@ hide:
 
 <div class="hive-hero" markdown>
 
-# **Hive** remembers every session you ship.
+# All your AI sessions in one searchable history.
 
 Every Claude Code run, every Claude Desktop thread — captured to one searchable history. Solo by default, your team when you're ready.
 
@@ -19,37 +19,23 @@ Every Claude Code run, every Claude Desktop thread — captured to one searchabl
 
 <div class="grid cards" markdown>
 
-- :material-record-rec:{ .lg .middle } __Session capture__
+- :material-record-rec:{ .lg .middle } __Automatic cross-tool capture__
 
     ---
 
-    Claude Code SessionStart / SessionEnd hooks persist prompts, tool calls, and outputs to a local store. Nothing to configure per-session.
+    Claude Code and Claude Desktop conversations in one history, no setup per-session. Prompts, tool calls, and outputs are preserved automatically.
 
-    `claude-code · hooks`
-
-- :material-robot-outline:{ .lg .middle } __MCP surface__
+- :material-magnify:{ .lg .middle } __Searchable by Claude__
 
     ---
 
-    Both capture and query happen over MCP. Claude Desktop reads and writes to the same store as Code through a single server endpoint.
+    Ask Claude about past decisions, designs, and debugging context across your full history. Full-text and semantic search via MCP.
 
-    `claude-desktop · mcp`
-
-- :material-server-network:{ .lg .middle } __Self-hosted team mode__
+- :material-arrow-expand-all:{ .lg .middle } __Solo to team__
 
     ---
 
-    `hive serve` exposes the store over HTTP. SQLite-backed, Apache 2.0, no SaaS dependency. Secret scrubbing runs before any write crosses the wire.
-
-    `hive serve · sqlite`
-
-- :material-source-branch:{ .lg .middle } __Git-aware indexing__
-
-    ---
-
-    Sessions are tagged with branch, commit, and PR number. Queries can be filtered by any of these; lineage survives rebases.
-
-    `branch · commit · pr`
+    Works on your laptop, scales to a shared server when you're ready. SQLite or PostgreSQL, self-hosted, Apache 2.0.
 
 </div>
 
