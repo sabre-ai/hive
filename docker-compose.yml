@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: hive
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-pgvector.sql:/docker-entrypoint-initdb.d/01-pgvector.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  hive:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      HIVE_DB_URL: "postgresql://hive:hive@postgres:5432/hive"
+      HIVE_SEARCH_BACKEND: "pgvector"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
