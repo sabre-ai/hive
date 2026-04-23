@@ -114,6 +114,7 @@ class Config:
     search_assets_path: Path | None = None
     search_vec_db_path: Path = field(default_factory=lambda: HIVE_DATA_DIR / "search_vec.db")
     search_embedding_model: str = "all-MiniLM-L6-v2"
+    search_pgvector_url: str | None = None
     db_url: str | None = None
 
     @property
@@ -168,6 +169,16 @@ class Config:
                 config.search_vec_db_path = Path(search["vec_db_path"])
             if "embedding_model" in search:
                 config.search_embedding_model = search["embedding_model"]
+            if "pgvector_url" in search:
+                config.search_pgvector_url = search["pgvector_url"]
+
+        # Environment variable overrides (for Docker / CI)
+        if env_db_url := os.environ.get("HIVE_DB_URL"):
+            config.db_url = env_db_url
+        if env_search_backend := os.environ.get("HIVE_SEARCH_BACKEND"):
+            config.search_backend = env_search_backend
+        if env_server_port := os.environ.get("HIVE_SERVER_PORT"):
+            config.server_port = int(env_server_port)
 
         # Load scrub patterns from default file + user overrides
         config.scrub_patterns = _load_scrub_patterns(user_data)

@@ -22,7 +22,10 @@ def get_engine(config: Config | None = None, db_path: Path | None = None) -> Eng
         config = Config.load()
     url = _build_url(config, db_path)
     if url not in _engines:
-        engine = create_engine(url, echo=False)
+        kwargs: dict = {"echo": False}
+        if url.startswith("postgresql"):
+            kwargs.update(pool_size=5, max_overflow=10)
+        engine = create_engine(url, **kwargs)
         # Set SQLite PRAGMAs on every new connection
         if engine.dialect.name == "sqlite":
 
@@ -53,10 +56,13 @@ def init_db(config: Config | None = None, db_path: Path | None = None) -> Engine
     """
     if config is None:
         config = Config.load()
-    path = db_path or config.db_path
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     url = _build_url(config, db_path)
+
+    # Only create directories for SQLite databases
+    if not url.startswith("postgresql"):
+        path = db_path or config.db_path
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     from alembic import command
     from alembic.config import Config as AlembicConfig
@@ -66,7 +72,7 @@ def init_db(config: Config | None = None, db_path: Path | None = None) -> Engine
     alembic_cfg.set_main_option("sqlalchemy.url", url)
 
     command.upgrade(alembic_cfg, "head")
-    logger.debug("Database migrations applied for %s", path)
+    logger.debug("Database migrations applied for %s", url)
 
     return get_engine(config, db_path)
 

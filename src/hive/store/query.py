@@ -172,7 +172,7 @@ class QueryAPI:
         except Exception:
             pass
 
-        return self._search_fts5(query, project, author, since, until, limit)
+        return self._search_fts(query, project, author, since, until, limit)
 
     def _search_semantic(
         self,
@@ -222,7 +222,7 @@ class QueryAPI:
         output.sort(key=lambda s: s.get("score", 0.0), reverse=True)
         return output
 
-    def _search_fts5(
+    def _search_fts(
         self,
         query: str,
         project: str | None,
@@ -231,7 +231,7 @@ class QueryAPI:
         until: str | None,
         limit: int,
     ) -> list[dict[str, Any]]:
-        """Fall back to SQLite FTS5 keyword search (raw SQL — SQLite only)."""
+        """Fall back to native full-text search (FTS5 on SQLite, tsvector on PostgreSQL)."""
         with self._session() as session:
             clauses = []
             params: dict[str, Any] = {"query": query, "limit": limit}
@@ -250,10 +250,23 @@ class QueryAPI:
                 params["until"] = until
 
             extra = " ".join(clauses)
-            rows = (
-                session.execute(
-                    text(
-                        f"""
+
+            if self._dialect == "postgresql":
+                sql = f"""
+                    SELECT s.*,
+                           ts_rank(fts.search_vector, plainto_tsquery('english', :query)) AS rank,
+                           ts_headline('english', fts.content, plainto_tsquery('english', :query),
+                                       'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=32'
+                           ) AS snippet
+                    FROM sessions_fts_pg fts
+                    JOIN sessions s ON s.id = fts.session_id
+                    WHERE fts.search_vector @@ plainto_tsquery('english', :query)
+                    {extra}
+                    ORDER BY rank DESC
+                    LIMIT :limit
+                    """
+            else:
+                sql = f"""
                     SELECT s.*, snippet(sessions_fts, 1, '<mark>', '</mark>', '…', 32) as snippet
                     FROM sessions_fts fts
                     JOIN sessions s ON s.id = fts.session_id
@@ -262,12 +275,8 @@ class QueryAPI:
                     ORDER BY rank
                     LIMIT :limit
                     """
-                    ),
-                    params,
-                )
-                .mappings()
-                .all()
-            )
+
+            rows = session.execute(text(sql), params).mappings().all()
             return [dict(r) for r in rows]
 
     # ── Get single session ──────────────────────────────────────────
@@ -392,19 +401,26 @@ class QueryAPI:
 
     def get_lineage(self, identifier: str, id_type: str = "file") -> list[dict[str, Any]]:
         """Walk edges graph for a file path or session ID."""
+        if self._dialect == "postgresql":
+            agg_rel = "STRING_AGG(DISTINCT e_file.relationship, ',')"
+            agg_commit = "STRING_AGG(DISTINCT e_commit.target_id, ',')"
+        else:
+            agg_rel = "GROUP_CONCAT(DISTINCT e_file.relationship)"
+            agg_commit = "GROUP_CONCAT(DISTINCT e_commit.target_id)"
+
         with self._session() as session:
             if id_type == "file":
                 rows = (
                     session.execute(
                         text(
-                            """
+                            f"""
                         SELECT
                             s.id as session_id,
                             s.summary,
                             s.started_at,
                             s.author,
-                            GROUP_CONCAT(DISTINCT e_file.relationship) as relationships,
-                            GROUP_CONCAT(DISTINCT e_commit.target_id) as commit_shas
+                            {agg_rel} as relationships,
+                            {agg_commit} as commit_shas
                         FROM edges e_file
                         JOIN sessions s ON e_file.source_type = 'session' AND s.id = e_file.source_id
                         LEFT JOIN edges e_commit ON (
@@ -764,14 +780,24 @@ class QueryAPI:
             session.commit()
 
     def index_session_fts(self, session_id: str, content: str) -> None:
-        """Index session content for full-text search (SQLite FTS5 only)."""
-        if self._dialect != "sqlite":
-            return
+        """Index session content for full-text search."""
         with self._session() as session:
-            session.execute(
-                text("INSERT INTO sessions_fts (session_id, content) VALUES (:sid, :content)"),
-                {"sid": session_id, "content": content},
-            )
+            if self._dialect == "postgresql":
+                session.execute(
+                    text(
+                        "INSERT INTO sessions_fts_pg (session_id, content) "
+                        "VALUES (:sid, :content) "
+                        "ON CONFLICT (session_id) DO UPDATE SET content = EXCLUDED.content"
+                    ),
+                    {"sid": session_id, "content": content},
+                )
+            elif self._dialect == "sqlite":
+                session.execute(
+                    text("INSERT INTO sessions_fts (session_id, content) VALUES (:sid, :content)"),
+                    {"sid": session_id, "content": content},
+                )
+            else:
+                return
             session.commit()
 
     # ── Delete ──────────────────────────────────────────────────────
@@ -792,6 +818,11 @@ class QueryAPI:
             if self._dialect == "sqlite":
                 session.execute(
                     text("DELETE FROM sessions_fts WHERE session_id = :sid"),
+                    {"sid": session_id},
+                )
+            elif self._dialect == "postgresql":
+                session.execute(
+                    text("DELETE FROM sessions_fts_pg WHERE session_id = :sid"),
                     {"sid": session_id},
                 )
             session.execute(delete(SessionModel).where(SessionModel.id == session_id))
@@ -854,6 +885,11 @@ class QueryAPI:
                     text("DELETE FROM sessions_fts WHERE session_id = :sid"),
                     {"sid": session_id},
                 )
+            elif self._dialect == "postgresql":
+                session.execute(
+                    text("DELETE FROM sessions_fts_pg WHERE session_id = :sid"),
+                    {"sid": session_id},
+                )
             session.execute(delete(SessionModel).where(SessionModel.id == session_id))
 
             # Insert session
@@ -913,19 +949,30 @@ class QueryAPI:
                     )
                 )
 
+            # Flush ORM inserts so FK constraints are satisfied for FTS
+            session.flush()
+
             # FTS index
-            if self._dialect == "sqlite":
-                fts_parts = [
-                    msg.get("content", "")
-                    for msg in payload.get("messages", [])
-                    if msg.get("content")
-                ]
-                if fts_parts:
+            fts_parts = [
+                msg.get("content", "") for msg in payload.get("messages", []) if msg.get("content")
+            ]
+            if fts_parts:
+                fts_content = "\n".join(fts_parts)
+                if self._dialect == "sqlite":
                     session.execute(
                         text(
                             "INSERT INTO sessions_fts (session_id, content) VALUES (:sid, :content)"
                         ),
-                        {"sid": session_id, "content": "\n".join(fts_parts)},
+                        {"sid": session_id, "content": fts_content},
+                    )
+                elif self._dialect == "postgresql":
+                    session.execute(
+                        text(
+                            "INSERT INTO sessions_fts_pg (session_id, content) "
+                            "VALUES (:sid, :content) "
+                            "ON CONFLICT (session_id) DO UPDATE SET content = EXCLUDED.content"
+                        ),
+                        {"sid": session_id, "content": fts_content},
                     )
 
             session.commit()

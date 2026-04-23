@@ -717,7 +717,8 @@ def serve(port: int | None, no_search: bool):
     actual_port = port or config.server_port
 
     # Initialize server database
-    init_db(config, db_path=config.server_db_path)
+    db_path = None if config.db_url else config.server_db_path
+    init_db(config, db_path=db_path)
 
     # Start search backend if needed
     search_proc = None
@@ -760,12 +761,24 @@ def serve(port: int | None, no_search: bool):
                 )
         elif config.search_backend == "sqlite-vec":
             console.print("[dim]Using sqlite-vec search (in-process, no server needed).[/dim]")
+        elif config.search_backend == "pgvector":
+            console.print("[dim]Using pgvector search (PostgreSQL, in-database).[/dim]")
         else:
             console.print(f"[dim]Search backend: {config.search_backend}[/dim]")
 
     console.print(f"[bold]Starting hive server on http://0.0.0.0:{actual_port}[/bold]")
-    console.print(f"  Server DB: {config.server_db_path}")
-    app = create_app(config=config, db_path=config.server_db_path)
+    if config.db_url:
+        # Mask password in displayed URL
+        display_url = config.db_url
+        if "@" in display_url:
+            scheme_rest = display_url.split("://", 1)
+            if len(scheme_rest) == 2:
+                after_scheme = scheme_rest[1]
+                display_url = f"{scheme_rest[0]}://***@{after_scheme.split('@', 1)[-1]}"
+        console.print(f"  Server DB: {display_url}")
+    else:
+        console.print(f"  Server DB: {config.server_db_path}")
+    app = create_app(config=config, db_path=db_path)
 
     def _shutdown(signum, frame):
         if search_proc:
