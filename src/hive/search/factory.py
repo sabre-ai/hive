@@ -37,7 +37,10 @@ def get_search_backend(config: Config) -> SearchBackend:
     if backend == "pgvector":
         from hive.search.pgvector import PgvectorBackend
 
-        return PgvectorBackend()
+        dsn = config.search_pgvector_url or config.db_url
+        if not dsn:
+            raise ValueError("pgvector backend requires db_url or [search].pgvector_url to be set")
+        return PgvectorBackend(dsn=dsn, model_name=config.search_embedding_model)
 
     if backend == "elasticsearch":
         from hive.search.elasticsearch import ElasticsearchBackend
