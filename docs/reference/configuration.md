@@ -27,8 +27,8 @@ server_port = 3000
 # Time window (in minutes) for linking git commits to sessions.
 link_window_minutes = 30
 
-# SQLAlchemy database URL (overrides db_path). For future PostgreSQL/MySQL support.
-# db_url = "sqlite:///~/.local/share/hive/store.db"
+# SQLAlchemy database URL (overrides db_path when set).
+# db_url = "postgresql://hive:hive@localhost:5432/hive"
 ```
 
 ### Field Reference
@@ -41,7 +41,7 @@ link_window_minutes = 30
 | `server_url` | string | `http://localhost:3000` | Team server base URL (used by MCP and auto-push) |
 | `server_port` | int | `3000` | Port for `hive serve` |
 | `link_window_minutes` | int | `30` | Max age (minutes) of a session for commit linking |
-| `db_url` | string | `None` | SQLAlchemy database URL (overrides `db_path`). For future PostgreSQL/MySQL support. |
+| `db_url` | string | `None` | SQLAlchemy database URL (overrides `db_path`), e.g. `postgresql://user:pass@host:5432/hive` |
 
 ## Search Config
 
@@ -49,32 +49,44 @@ Search settings live under the `[search]` TOML section.
 
 ```toml
 [search]
-backend = "sqlite-vec"
+backend = "sqlite-vec"       # or "pgvector", "witchcraft"
 url = "http://localhost:3033"
 binary = "hive-search"
 assets_path = "/path/to/witchcraft/assets"
 vec_db_path = "~/.local/share/hive/search_vec.db"
 embedding_model = "all-MiniLM-L6-v2"
+# pgvector_url = "postgresql://..."   # defaults to db_url when using pgvector backend
 ```
 
 ### Search Field Reference
 
 | TOML Key | Config Attribute | Default | Description |
 |----------|-----------------|---------|-------------|
-| `backend` | `search_backend` | `"sqlite-vec"` | Search backend: `"witchcraft"`, `"sqlite-vec"`, `"fts5-fallback"` |
+| `backend` | `search_backend` | `"sqlite-vec"` | Search backend: `"sqlite-vec"`, `"pgvector"`, `"witchcraft"` |
 | `url` | `search_url` | `"http://localhost:3033"` | URL of the witchcraft search server |
 | `binary` | `search_binary` | `"hive-search"` | Path or name of the search binary |
 | `assets_path` | `search_assets_path` | `None` | Path to witchcraft model assets |
 | `vec_db_path` | `search_vec_db_path` | `"~/.local/share/hive/search_vec.db"` | SQLite-vec database for embeddings |
 | `embedding_model` | `search_embedding_model` | `"all-MiniLM-L6-v2"` | Sentence-transformer model for embeddings |
+| `pgvector_url` | `search_pgvector_url` | `None` | PostgreSQL DSN for pgvector (defaults to `db_url`) |
 
 !!! tip "Choosing a search backend"
     - **sqlite-vec**: Default. Uses local embeddings with sqlite-vec for
       vector similarity search. No external server needed.
+    - **pgvector**: Recommended for team servers using PostgreSQL. Stores
+      embeddings in the same database. Requires `pip install -e ".[postgres]"`.
     - **witchcraft**: Uses the witchcraft binary for semantic search.
       Requires model assets and a running search server.
-    - **fts5-fallback**: Pure SQLite FTS5 keyword search. No dependencies,
-      but no semantic understanding.
+
+### Environment Variable Overrides
+
+For Docker and CI environments, these env vars take precedence over the TOML config:
+
+| Environment Variable | Overrides | Example |
+|---------------------|-----------|---------|
+| `HIVE_DB_URL` | `db_url` | `postgresql://hive:hive@postgres:5432/hive` |
+| `HIVE_SEARCH_BACKEND` | `search_backend` | `pgvector` |
+| `HIVE_SERVER_PORT` | `server_port` | `3000` |
 
 ## Per-Project Config
 

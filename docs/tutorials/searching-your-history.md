@@ -131,8 +131,8 @@ Hive supports two search backends:
     Semantic search using sentence embeddings stored in SQLite. Understands meaning, not just keywords.
 
     ```bash
-    # Install the extras
-    pip install "hive-team[search]"
+    # Install the extras (from the hive repo directory)
+    pip install -e ".[search]"
 
     # Rebuild the index
     hive reindex
