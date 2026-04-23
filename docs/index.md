@@ -43,13 +43,13 @@ Every Claude Code run, every Claude Desktop thread — captured to one searchabl
 
 ```mermaid
 flowchart LR
-    A[Claude Code<br/>hooks] -->|stdin JSON| B[Capture]
-    B --> C[Enrich<br/>git · files · quality]
-    C --> D[(store.db<br/>SQLite + FTS5)]
-    D -->|auto-push| E[(server.db<br/>team)]
-    E --> F[MCP<br/>REST API<br/>CLI]
-    F --> G[Claude]
+    CC[Claude Code<br/>hooks] --> E[Enrich] --> DB[(store.db)]
+    MCP[MCP Server] --> DB
+    Claude[Claude Code<br/>Claude Desktop] --> MCP
+    CLI[hive CLI] --> DB
 ```
+
+See [Architecture](architecture/overview.md) for the full pipeline including team mode.
 
 ## Get involved
 

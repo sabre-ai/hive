@@ -41,12 +41,10 @@ Everything stays on your machine. Claude Code hooks capture sessions into a loca
 
 ```mermaid
 flowchart LR
-    CC[Claude Code] -->|hooks: SessionStart, Stop| CA[Capture Adapter]
-    CA --> E[Enrich]
-    E --> DB[(store.db)]
-    DB --> CLI[hive CLI]
-    DB --> MCP[MCP Server]
-    MCP -->|search, recent, lineage| Claude[Claude Code / Desktop]
+    CC[Claude Code<br/>hooks] --> E[Enrich] --> DB[(store.db)]
+    MCP[MCP Server] --> DB
+    Claude[Claude Code<br/>Claude Desktop] --> MCP
+    CLI[hive CLI] --> DB
 ```
 
 - Sessions are written to `store.db` (`~/.local/share/hive/store.db`)
@@ -61,20 +59,20 @@ Enable per-project sharing to push sessions to a shared server. Local capture st
 ```mermaid
 flowchart LR
     subgraph DevA[Developer A]
-        CA_A[Capture] --> DB_A[(store.db)]
-        MCP_A[MCP Server]
+        CC_A[Claude Code<br/>hooks] --> E_A[Enrich] --> DB_A[(store.db)]
+        Claude_A[Claude Code<br/>Claude Desktop] --> MCP_A[MCP Server]
     end
     subgraph DevB[Developer B]
-        CA_B[Capture] --> DB_B[(store.db)]
-        MCP_B[MCP Server]
+        CC_B[Claude Code<br/>hooks] --> E_B[Enrich] --> DB_B[(store.db)]
+        Claude_B[Claude Code<br/>Claude Desktop] --> MCP_B[MCP Server]
     end
     subgraph Server[Team Server]
-        SRV[(server.db)] --> API[REST API]
+        API[REST API] --> SRV[(server.db)]
     end
-    DB_A -->|auto-push on Stop| API
-    DB_B -->|auto-push on Stop| API
-    MCP_A -->|search, recent| API
-    MCP_B -->|search, recent| API
+    DB_A -->|auto-push| API
+    DB_B -->|auto-push| API
+    MCP_A --> API
+    MCP_B --> API
 ```
 
 - Enable with `hive config sharing on` and set `server_url` in `~/.config/hive/config.toml`
