@@ -2,11 +2,17 @@
   <img src="docs/assets/hive-mark.svg" width="56" height="56" alt="hive">
 </p>
 <h1 align="center">hive</h1>
-<p align="center">Your team's AI coding history, searchable by Claude.</p>
+<p align="center">Every conversation with AI is institutional knowledge. Hive makes sure none of it is lost.</p>
 
 > **Full documentation:** [sabre-ai.github.io/hive](https://sabre-ai.github.io/hive/)
 
-Team server for Claude Code. Captures AI coding sessions from every developer's machine, pushes them to a shared server, and makes the team's collective history available to every user's Claude via MCP.
+Design decisions, debugging sessions, architecture discussions, code reviews — your AI conversations hold context that doesn't make it into commits or docs. Hive captures it all automatically and makes it searchable by Claude via MCP.
+
+**Solo:** Search your own history across Claude Code and Claude Desktop. *"What was that approach I tried last week?"*
+
+**Cross-tool:** Link conversations across tools — a Claude Desktop design discussion connects to the Claude Code session that implemented it.
+
+**Team:** Share sessions across your team so every developer's Claude can learn from everyone's work.
 
 ## Quick Start
 
@@ -31,7 +37,7 @@ Claude is the interface. These MCP tools are available when hive is connected:
 
 | Tool | Description | Required Args |
 |------|-------------|---------------|
-| `search` | Full-text search across team sessions | `query` |
+| `search` | Full-text search across sessions | `query` |
 | `get_session` | Retrieve complete session with messages | `session_id` |
 | `lineage` | Sessions and commits connected to a file | `file_path` |
 | `recent` | Latest sessions, filterable by project/author | — |
