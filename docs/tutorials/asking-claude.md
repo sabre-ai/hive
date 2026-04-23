@@ -7,7 +7,7 @@ The hive MCP server gives Claude Code direct access to your session history. In 
 Register the MCP server with Claude Code:
 
 ```bash
-claude mcp add --scope user --transport stdio hive -- hive mcp
+claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
 ```
 
 Restart Claude Code and verify:

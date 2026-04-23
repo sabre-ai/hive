@@ -51,7 +51,7 @@ This writes `sharing = "on"` to `<project>/.hive/config.toml`. Sessions from thi
 ### 5. Add the MCP server to Claude Code
 
 ```bash
-claude mcp add --scope user --transport stdio hive -- hive mcp
+claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
 ```
 
 This registers hive as an MCP tool provider. Claude Code can now search team history, look up sessions, and query file lineage directly.

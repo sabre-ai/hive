@@ -14,13 +14,7 @@ The hive MCP server exposes session data to AI assistants over the stdio transpo
 === "Claude Code"
 
     ```bash
-    claude mcp add --scope user --transport stdio hive -- hive mcp
-    ```
-
-    If using a venv or pipx, use the full path to the binary:
-
-    ```bash
-    claude mcp add --scope user --transport stdio hive -- /path/to/venv/bin/hive mcp
+    claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
     ```
 
     Start a new Claude Code session and run `/mcp` to verify -- you should see `hive · connected`.

@@ -32,7 +32,7 @@ When prompted "Enable sharing to team server?", answer **N** — you can enable 
 Now register hive as an MCP server so Claude can search your history:
 
 ```bash
-claude mcp add --scope user --transport stdio hive -- hive mcp
+claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
 ```
 
 Restart Claude Code and verify with `/mcp` — you should see `hive` listed.
@@ -162,7 +162,7 @@ hive config sharing on
 Register MCP and verify:
 
 ```bash
-claude mcp add --scope user --transport stdio hive -- hive mcp
+claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
 curl -s http://team-server:3000/ | jq .status              # should print "ok"
 hive log                                                    # see team sessions
 ```
