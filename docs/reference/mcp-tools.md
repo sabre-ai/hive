@@ -33,8 +33,8 @@ The hive MCP server exposes session data to AI assistants over the stdio transpo
     {
       "mcpServers": {
         "hive": {
-          "command": "~/.local/pipx/venvs/hive-team/bin/python",
-          "args": ["-m", "hive.cli", "mcp"]
+          "command": "/Users/YOUR_USERNAME/.local/bin/hive",
+          "args": ["mcp"]
         }
       }
     }
