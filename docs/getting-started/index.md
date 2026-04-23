@@ -71,24 +71,12 @@ Then add hive as an MCP server in `~/Library/Application Support/Claude/claude_d
 {
   "mcpServers": {
     "hive": {
-      "command": "~/.local/pipx/venvs/hive-team/bin/python",
-      "args": ["-m", "hive.cli", "mcp"]
+      "command": "/Users/YOUR_USERNAME/.local/bin/hive",
+      "args": ["mcp"]
     }
   }
 }
 ```
-
-!!! tip "Alternative: use the pipx binary directly"
-    ```json
-    {
-      "mcpServers": {
-        "hive": {
-          "command": "~/.local/bin/hive",
-          "args": ["mcp"]
-        }
-      }
-    }
-    ```
 
 !!! note "Picking up source changes"
     Since this is a non-editable install, re-run `pipx install --force /path/to/hive` after making source changes to update the Claude Desktop copy.
@@ -142,27 +130,29 @@ hive serve --port 3000
 
 **Connect each developer's machine:**
 
-```bash
-cd your-project
-hive init                                                  # say Y to sharing
-```
-
 Set the server URL in `~/.config/hive/config.toml`:
 
 ```toml
 server_url = "http://team-server:3000"
 ```
 
-If sharing wasn't enabled during init:
+Enable sharing:
 
 ```bash
 hive config sharing on
 ```
 
-Register MCP and verify:
+!!! note "First time installing hive?"
+    If you haven't completed Stage 1, run these steps first:
+    ```bash
+    cd your-project
+    hive init                                                  # say Y to sharing
+    claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
+    ```
+
+Verify the connection:
 
 ```bash
-claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
 curl -s http://team-server:3000/ | jq .status              # should print "ok"
 hive log                                                    # see team sessions
 ```

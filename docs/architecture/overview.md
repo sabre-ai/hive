@@ -35,38 +35,54 @@ flowchart TB
 | **Store** | SQLite + FTS5 (`store.db`, `server.db`) | Persist sessions, messages, enrichments, edges |
 | **Serve** | CLI, REST API, MCP server | Query and expose data to humans and AI |
 
-## Solo vs Team Mode
+## Solo Mode (default)
+
+Everything stays on your machine. Claude Code hooks capture sessions into a local SQLite database, and the MCP server reads directly from it.
+
+```mermaid
+flowchart LR
+    CC[Claude Code] -->|hooks: SessionStart, Stop| CA[Capture Adapter]
+    CA --> E[Enrich]
+    E --> DB[(store.db)]
+    DB --> CLI[hive CLI]
+    DB --> MCP[MCP Server]
+    MCP -->|search, recent, lineage| Claude[Claude Code / Desktop]
+```
+
+- Sessions are written to `store.db` (`~/.local/share/hive/store.db`)
+- The CLI reads and writes `store.db` directly
+- The MCP server queries `store.db` via `QueryAPI` — no network calls
+- Nothing leaves your machine
+
+## Team Mode
+
+Enable per-project sharing to push sessions to a shared server. Local capture still works the same — team mode adds an auto-push step and routes MCP queries to the server.
 
 ```mermaid
 flowchart LR
     subgraph DevA[Developer A]
-        SA[(store.db)]
+        CA_A[Capture] --> DB_A[(store.db)]
+        MCP_A[MCP Server]
     end
     subgraph DevB[Developer B]
-        SB[(store.db)]
+        CA_B[Capture] --> DB_B[(store.db)]
+        MCP_B[MCP Server]
     end
     subgraph Server[Team Server]
-        SRV[(server.db)]
-        API[REST API]
+        SRV[(server.db)] --> API[REST API]
     end
-    SA -->|auto-push on Stop| SRV
-    SB -->|auto-push on Stop| SRV
-    SRV --> API
-    API -->|MCP over HTTP| DevA
-    API -->|MCP over HTTP| DevB
+    DB_A -->|auto-push on Stop| API
+    DB_B -->|auto-push on Stop| API
+    MCP_A -->|search, recent| API
+    MCP_B -->|search, recent| API
 ```
 
-!!! info "Solo mode (default)"
-    Everything stays local. The CLI reads and writes `store.db` directly.
-    The MCP server talks to `localhost:3000` which reads from `server.db`.
+- Enable with `hive config sharing on` and set `server_url` in `~/.config/hive/config.toml`
+- When a session ends (`Stop` hook), the adapter scrubs secrets and POSTs the payload to the team server via a background thread
+- MCP queries for shared projects route to the team server; unshared projects still query local `store.db`
+- If the team server is unreachable, MCP falls back to local automatically
 
-!!! info "Team mode"
-    Enable per-project sharing with `hive config sharing on`. When a session
-    ends (`Stop` hook), the adapter scrubs secrets from the full payload and
-    POSTs it to the configured `server_url` via a daemon thread. Team members
-    run `hive serve` to host a shared server with its own `server.db`.
-
-Transitioning from solo to team is one config change -- the `server_url`.
+Transitioning from solo to team is one config change — the `server_url`.
 
 ## Two Databases
 
