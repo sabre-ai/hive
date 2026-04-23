@@ -24,7 +24,7 @@ pip install -e .
 
 cd your-project
 hive init
-claude mcp add --scope user --transport stdio hive -- hive mcp
+claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
 ```
 
 Ask Claude: *"What did I work on today?"*
@@ -37,7 +37,7 @@ Claude is the interface. These MCP tools are available when hive is connected:
 
 | Tool | Description | Required Args |
 |------|-------------|---------------|
-| `search` | Full-text search across sessions | `query` |
+| `search` | Full-text and semantic search across sessions | `query` |
 | `get_session` | Retrieve complete session with messages | `session_id` |
 | `lineage` | Sessions and commits connected to a file | `file_path` |
 | `recent` | Latest sessions, filterable by project/author | — |
