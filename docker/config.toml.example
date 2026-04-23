@@ -1,0 +1,12 @@
+# Example hive config for Docker-based PostgreSQL team server.
+# Copy to ~/.config/hive/config.toml and adjust as needed.
+#
+# When running inside Docker Compose, these values are set via
+# environment variables (HIVE_DB_URL, HIVE_SEARCH_BACKEND) instead.
+
+db_url = "postgresql://hive:hive@localhost:5432/hive"
+server_port = 3000
+
+[search]
+backend = "pgvector"
+embedding_model = "all-MiniLM-L6-v2"
