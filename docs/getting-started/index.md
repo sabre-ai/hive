@@ -6,20 +6,12 @@ This guide walks you through three stages. Each one builds on the last — stop 
 
 Install hive and capture your first session. Everything stays on your local machine.
 
-=== "pipx (recommended)"
-
-    ```bash
-    pipx install hive-team
-    ```
-
-=== "From source"
-
-    ```bash
-    git clone https://github.com/sabre-ai/hive.git
-    cd hive
-    python3 -m venv .venv && source .venv/bin/activate
-    pip install -e .
-    ```
+```bash
+git clone https://github.com/sabre-ai/hive.git
+cd hive
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
 
 Initialize hive in any project:
 
@@ -67,27 +59,39 @@ You now have automatic session capture, local search, and Claude can query your 
 
 Sessions from Claude Desktop brainstorms become searchable alongside your Claude Code sessions.
 
-Add hive as an MCP server in Claude Desktop by editing `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Claude Desktop is sandboxed on macOS and cannot access `~/Documents/`. Install hive with pipx so the binary lives outside the sandbox:
+
+```bash
+pipx install /path/to/hive   # use the directory where you cloned hive
+```
+
+Then add hive as an MCP server in `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "hive": {
-      "command": "/Users/YOUR_USERNAME/.local/pipx/venvs/hive-team/bin/python",
+      "command": "~/.local/pipx/venvs/hive-team/bin/python",
       "args": ["-m", "hive.cli", "mcp"]
     }
   }
 }
 ```
 
-!!! warning "macOS sandbox"
-    Claude Desktop is sandboxed and cannot access `~/Documents/`. Use a `pipx install` (not `pip install -e`) so hive lives under `~/.local/` which is accessible.
-
-!!! tip "Find your pipx Python path"
-    ```bash
-    pipx environment --value PIPX_LOCAL_VENVS
-    # typically: ~/.local/pipx/venvs
+!!! tip "Alternative: use the pipx binary directly"
+    ```json
+    {
+      "mcpServers": {
+        "hive": {
+          "command": "~/.local/bin/hive",
+          "args": ["mcp"]
+        }
+      }
+    }
     ```
+
+!!! note "Picking up source changes"
+    Since this is a non-editable install, re-run `pipx install --force /path/to/hive` after making source changes to update the Claude Desktop copy.
 
 **Save a conversation:** At the end of a design discussion in Claude Desktop, say:
 
@@ -105,13 +109,29 @@ hive lineage <session-id>
 
 You now have unified history across Claude Code and Claude Desktop.
 
+!!! tip "Team server access"
+    Once you connect to a team server (Stage 3), Claude Desktop automatically searches team-wide history too — no extra MCP configuration needed. The `server_url` in your global config applies to both Claude Code and Claude Desktop.
+
 ---
 
 ## Stage 3: Team Server
 
 Share sessions across your team so everyone's Claude can search the collective history.
 
-**Start the server** (on any machine your team can reach):
+### Option A: Docker (recommended)
+
+The easiest way to run a production team server — one command starts PostgreSQL (with pgvector) and the hive server together:
+
+```bash
+git clone https://github.com/sabre-ai/hive.git && cd hive
+docker compose up -d
+```
+
+The server is now running at `http://localhost:3000` backed by PostgreSQL with semantic search via pgvector.
+
+### Option B: SQLite (simple)
+
+For quick local testing or small teams, install from source and run:
 
 ```bash
 hive serve --port 3000
@@ -123,7 +143,6 @@ hive serve --port 3000
 **Connect each developer's machine:**
 
 ```bash
-pipx install hive-team
 cd your-project
 hive init                                                  # say Y to sharing
 ```
