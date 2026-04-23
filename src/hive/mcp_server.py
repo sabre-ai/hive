@@ -1,8 +1,8 @@
 """MCP server exposing hive data to AI assistants over stdio.
 
-In solo mode (server_url points to localhost) reads directly from the
-local SQLite store — no running server required.  In team mode proxies
-to the remote REST server over HTTP.
+Routes queries per-project: shared projects go to the team server,
+unshared projects read from the local SQLite store.  Falls back to
+local when the team server is unreachable.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, Protocol
 
 import httpx
@@ -18,7 +19,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from hive.config import Config
+from hive.config import Config, load_project_config
 
 logger = logging.getLogger(__name__)
 
@@ -254,10 +255,25 @@ class RemoteBackend:
             return r.json()
 
 
-# ── Lazy init ──────────────────────────────────────────────────────
+# ── Lazy init & per-project routing ────────────────────────────────
 
-_backend: LocalBackend | RemoteBackend | None = None
+_local: LocalBackend | None = None
+_remote: RemoteBackend | None = None
 _default_project: str | None = None
+
+
+def _ensure_backends() -> None:
+    """Lazily initialize both backends."""
+    global _local, _remote
+    if _local is not None:
+        return
+    config = Config.load()
+    _local = LocalBackend(config)
+    if config.server_url:
+        _remote = RemoteBackend(config.server_url)
+        logger.info("MCP: team server configured at %s", config.server_url)
+    else:
+        logger.info("MCP: no team server configured, local-only mode")
 
 
 def _resolve_project(arguments: dict[str, Any]) -> str | None:
@@ -270,17 +286,22 @@ def _resolve_project(arguments: dict[str, Any]) -> str | None:
     return arguments.get("project") or _default_project
 
 
-def _get_backend() -> LocalBackend | RemoteBackend:
-    global _backend
-    if _backend is None:
-        config = Config.load()
-        if config.is_solo:
-            logger.info("MCP: solo mode — reading from local store")
-            _backend = LocalBackend(config)
-        else:
-            logger.info("MCP: team mode — proxying to %s", config.server_url)
-            _backend = RemoteBackend(config.server_url)
-    return _backend
+def _get_backend_for_project(project: str | None) -> LocalBackend | RemoteBackend:
+    """Pick backend based on project sharing config.
+
+    Shared projects route to the team server; unshared projects stay local.
+    """
+    _ensure_backends()
+    assert _local is not None
+
+    if not project or not _remote:
+        return _local
+
+    project_config = load_project_config(Path(project))
+    if project_config.sharing:
+        return _remote
+
+    return _local
 
 
 def _json_response(data: Any) -> list[TextContent]:
@@ -522,41 +543,28 @@ async def list_tools() -> list[Tool]:
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-    backend = _get_backend()
+    _ensure_backends()
+    assert _local is not None
+    project = _resolve_project(arguments)
 
     try:
+        # ── Project-routed tools (shared → team server, else → local) ──
+
         if name == "search":
+            backend = _get_backend_for_project(project)
             results = await backend.search(
                 query=arguments["query"],
-                project=_resolve_project(arguments),
+                project=project,
                 author=arguments.get("author"),
                 since=arguments.get("since"),
             )
             return _json_response(results)
 
-        if name == "get_session":
-            session = await backend.get_session(
-                session_id=arguments["session_id"],
-                detail=arguments.get("detail"),
-                role=arguments.get("role"),
-                limit=arguments.get("limit"),
-                offset=arguments.get("offset"),
-            )
-            if session is None:
-                return _json_response({"error": "Session not found"})
-            return _json_response(session)
-
-        if name == "lineage":
-            if "session_id" in arguments:
-                edges = await backend.session_lineage(arguments["session_id"])
-            else:
-                edges = await backend.lineage(arguments["file_path"])
-            return _json_response(edges)
-
         if name == "recent":
+            backend = _get_backend_for_project(project)
             n = min(arguments.get("n", 10), 100)
             sessions = await backend.recent(
-                project=_resolve_project(arguments),
+                project=project,
                 author=arguments.get("author"),
                 n=n,
                 sort_by=arguments.get("sort_by"),
@@ -567,15 +575,61 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(sessions)
 
         if name == "stats":
+            backend = _get_backend_for_project(project)
             stats = await backend.stats(
-                project=_resolve_project(arguments),
+                project=project,
                 since=arguments.get("since"),
                 group_by=arguments.get("group_by"),
             )
             return _json_response(stats)
 
+        if name == "current_session":
+            backend = _get_backend_for_project(project)
+            sessions = await backend.recent(project=project, n=1)
+            if sessions:
+                s = sessions[0]
+                return _json_response(
+                    {
+                        "session_id": s["id"],
+                        "source": s.get("source"),
+                        "started_at": s.get("started_at"),
+                        "summary": s.get("summary"),
+                    }
+                )
+            return _json_response({"error": "No sessions found"})
+
+        # ── Always-local tools ─────────────────────────────────────────
+
+        if name == "get_session":
+            session = await _local.get_session(
+                session_id=arguments["session_id"],
+                detail=arguments.get("detail"),
+                role=arguments.get("role"),
+                limit=arguments.get("limit"),
+                offset=arguments.get("offset"),
+            )
+            # If not found locally and team server is available, try remote
+            if session is None and _remote is not None:
+                session = await _remote.get_session(
+                    session_id=arguments["session_id"],
+                    detail=arguments.get("detail"),
+                    role=arguments.get("role"),
+                    limit=arguments.get("limit"),
+                    offset=arguments.get("offset"),
+                )
+            if session is None:
+                return _json_response({"error": "Session not found"})
+            return _json_response(session)
+
+        if name == "lineage":
+            if "session_id" in arguments:
+                edges = await _local.session_lineage(arguments["session_id"])
+            else:
+                edges = await _local.lineage(arguments["file_path"])
+            return _json_response(edges)
+
         if name == "delete":
-            result = await backend.delete_session(arguments["session_id"])
+            result = await _local.delete_session(arguments["session_id"])
             return _json_response(result)
 
         if name == "capture_session":
@@ -586,7 +640,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 {
                     "title": arguments["title"],
                     "content": arguments["content"],
-                    "project": _resolve_project(arguments),
+                    "project": project,
                     "tags": arguments.get("tags", []),
                 }
             )
@@ -612,11 +666,53 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 }
             )
 
-        if name == "current_session":
-            sessions = await backend.recent(
-                project=_resolve_project(arguments),
-                n=1,
+    except httpx.ConnectError:
+        # Team server unreachable — fall back to local for this request
+        logger.warning("MCP: team server unreachable, falling back to local")
+        return await _fallback_local(name, arguments, project)
+    except httpx.HTTPStatusError as e:
+        return _json_response(
+            {"error": f"Server returned {e.response.status_code}: {e.response.text}"}
+        )
+
+    return _json_response({"error": f"Unknown tool: {name}"})
+
+
+async def _fallback_local(
+    name: str, arguments: dict[str, Any], project: str | None
+) -> list[TextContent]:
+    """Re-run a project-routed tool against the local backend."""
+    assert _local is not None
+    try:
+        if name == "search":
+            results = await _local.search(
+                query=arguments["query"],
+                project=project,
+                author=arguments.get("author"),
+                since=arguments.get("since"),
             )
+            return _json_response(results)
+        if name == "recent":
+            n = min(arguments.get("n", 10), 100)
+            sessions = await _local.recent(
+                project=project,
+                author=arguments.get("author"),
+                n=n,
+                sort_by=arguments.get("sort_by"),
+                min_tokens=arguments.get("min_tokens"),
+                model=arguments.get("model"),
+                min_correction_rate=arguments.get("min_correction_rate"),
+            )
+            return _json_response(sessions)
+        if name == "stats":
+            stats = await _local.stats(
+                project=project,
+                since=arguments.get("since"),
+                group_by=arguments.get("group_by"),
+            )
+            return _json_response(stats)
+        if name == "current_session":
+            sessions = await _local.recent(project=project, n=1)
             if sessions:
                 s = sessions[0]
                 return _json_response(
@@ -628,15 +724,9 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     }
                 )
             return _json_response({"error": "No sessions found"})
-
-    except httpx.ConnectError:
-        return _json_response({"error": "Cannot connect to hive server. Is 'hive serve' running?"})
-    except httpx.HTTPStatusError as e:
-        return _json_response(
-            {"error": f"Server returned {e.response.status_code}: {e.response.text}"}
-        )
-
-    return _json_response({"error": f"Unknown tool: {name}"})
+    except Exception:
+        pass
+    return _json_response({"error": "Cannot connect to hive server and local fallback failed."})
 
 
 # ── Entry-point ─────────────────────────────────────────────────────
