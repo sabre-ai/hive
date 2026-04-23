@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from hive.config import Config
-from hive.store.db import init_db
+from hive.store.db import init_db, reset_engines
 from hive.store.query import QueryAPI
 
 
@@ -50,6 +51,52 @@ def sample_session() -> dict:
         "message_count": 4,
         "summary": "Refactored the auth module",
     }
+
+
+@pytest.fixture(scope="session")
+def pg_url():
+    """Return a PostgreSQL test URL, or skip if not set."""
+    url = os.environ.get("HIVE_TEST_PG_URL")
+    if not url:
+        pytest.skip("Set HIVE_TEST_PG_URL to run PostgreSQL tests")
+    return url
+
+
+@pytest.fixture()
+def pg_config(pg_url):
+    """Return a Config pointing at the PostgreSQL test database."""
+    cfg = Config()
+    cfg.db_url = pg_url
+    cfg.search_backend = "witchcraft"
+    cfg.search_url = "http://localhost:0"
+    return cfg
+
+
+@pytest.fixture()
+def pg_query_api(pg_config):
+    """Return a QueryAPI wired to the PostgreSQL test database."""
+    reset_engines()
+    init_db(config=pg_config)
+    api = QueryAPI(config=pg_config)
+    yield api
+    # Clean up tables after each test
+    from sqlalchemy import text as sa_text
+
+    from hive.store.db import get_session_factory
+
+    factory = get_session_factory(pg_config)
+    with factory() as session:
+        for table in [
+            "sessions_fts_pg",
+            "edges",
+            "annotations",
+            "enrichments",
+            "messages",
+            "sessions",
+        ]:
+            session.execute(sa_text(f"DELETE FROM {table}"))
+        session.commit()
+    reset_engines()
 
 
 @pytest.fixture()
