@@ -1,14 +1,16 @@
 # Searching Your History
 
-Hive provides multiple ways to find past sessions: full-text search, filtered browsing, detailed inspection, and MCP-powered natural language queries.
+Hive provides multiple ways to find past sessions: semantic search, filtered browsing, detailed inspection, and MCP-powered natural language queries.
 
-## Full-Text Search
+## Search
 
 The primary search command:
 
 ```bash
 hive search "database migration"
 ```
+
+Hive uses semantic search by default (via sqlite-vec), so queries like `"how did I handle errors"` match sessions about error handling even if those exact words were not used. If sqlite-vec is not installed, hive falls back to keyword-based FTS5 search.
 
 ### Flags
 
@@ -24,33 +26,6 @@ Combine flags freely:
 ```bash
 hive search "auth" --project api-gateway --since 2026-04-01
 ```
-
-### FTS5 Query Syntax
-
-Hive uses SQLite FTS5 under the hood. You can use its full query syntax for precise searches:
-
-```bash
-# AND (implicit -- all terms must match)
-hive search "database migration"
-
-# Explicit AND
-hive search "database AND migration"
-
-# OR
-hive search "postgres OR mysql"
-
-# NOT
-hive search "database NOT migration"
-
-# Exact phrase
-hive search '"connection pooling"'
-
-# Prefix match
-hive search "auth*"
-```
-
-!!! tip "Quoting"
-    Wrap exact phrases in double quotes inside single quotes to prevent shell expansion: `'"exact phrase"'`.
 
 ## Browsing Recent Sessions
 
@@ -121,29 +96,3 @@ When Claude Code has the hive MCP server registered, you can search with natural
 Claude uses the `search` MCP tool behind the scenes, which supports the same filtering as the CLI. The advantage is that Claude can interpret results, follow up with `get_session` to read full conversations, and synthesize answers across multiple sessions.
 
 See [Asking Claude](asking-claude.md) for setup and prompt examples.
-
-## Search Backends
-
-Hive supports two search backends:
-
-=== "sqlite-vec (default)"
-
-    Semantic search using sentence embeddings stored in SQLite. Understands meaning, not just keywords.
-
-    ```bash
-    # Install the extras (from the hive repo directory)
-    pip install -e ".[search]"
-
-    # Rebuild the index
-    hive reindex
-    ```
-
-    Queries like `"how did I handle errors"` match sessions about error handling even if those exact words were not used.
-
-=== "FTS5 (fallback)"
-
-    Keyword-based full-text search built into SQLite. Always available, no extras needed.
-
-    Works best with specific terms and the FTS5 query syntax described above.
-
-If `sqlite-vec` is installed, hive uses it automatically. Otherwise it falls back to FTS5.
