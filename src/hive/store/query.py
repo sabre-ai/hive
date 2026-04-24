@@ -483,9 +483,7 @@ class QueryAPI:
             if not edge_rows:
                 return []
             rows = (
-                session.execute(
-                    select(SessionModel).where(SessionModel.id.in_(edge_rows))
-                )
+                session.execute(select(SessionModel).where(SessionModel.id.in_(edge_rows)))
                 .scalars()
                 .all()
             )
