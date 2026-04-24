@@ -466,6 +466,31 @@ class QueryAPI:
 
             return [dict(r) for r in rows]
 
+    def get_sessions_by_commit(self, commit_sha: str) -> list[dict[str, Any]]:
+        """Return sessions that produced or started at a given commit SHA (prefix match)."""
+        with self._session() as session:
+            edge_rows = (
+                session.execute(
+                    select(Edge.source_id).where(
+                        Edge.source_type == "session",
+                        Edge.target_type == "commit",
+                        Edge.target_id.like(f"{commit_sha}%"),
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not edge_rows:
+                return []
+            rows = (
+                session.execute(
+                    select(SessionModel).where(SessionModel.id.in_(edge_rows))
+                )
+                .scalars()
+                .all()
+            )
+            return [_session_to_dict(s) for s in rows]
+
     # ── Stats ───────────────────────────────────────────────────────
 
     def get_stats(

@@ -133,7 +133,7 @@ nav:
     - Asking Claude: tutorials/asking-claude.md
     - Sharing Controls: tutorials/sharing-controls.md
     - Secret Scrubbing: tutorials/secret-scrubbing.md
-    - File Lineage: tutorials/file-lineage.md
+    - File & Commit Lineage: tutorials/file-lineage.md
     - Annotating Sessions: tutorials/annotating-sessions.md
   - Architecture: architecture/overview.md
   - Reference:

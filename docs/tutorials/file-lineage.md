@@ -1,14 +1,13 @@
-# File Lineage
+# File & Commit Lineage
 
-Trace any file's history through AI coding sessions and git commits. Lineage answers: "Who worked on this file, when, and what did they change?"
+Trace any file or commit through AI coding sessions. Lineage answers: "Who worked on this file?" and "Which sessions produced this commit?"
 
 ## Quick Start
 
 ```bash
-hive lineage src/auth.py
+hive lineage --file src/auth.py      # sessions that touched a file
+hive lineage --commit abc123f        # sessions that produced a commit
 ```
-
-This prints every session and commit linked to `src/auth.py`, newest first.
 
 ## How Edges Get Created
 
@@ -43,71 +42,66 @@ session --[committed]--> file   (for each file in the commit)
     link_window_minutes = 30
     ```
 
-## CLI Usage
+## File Lineage
 
-Pass any file path -- hive resolves it to an absolute path automatically:
+Pass any file path — hive resolves it to an absolute path automatically:
 
 ```bash
-# Relative path works
-hive lineage src/auth.py
-
-# Absolute path works too
-hive lineage /home/alice/code/api/src/auth.py
+hive lineage --file src/auth.py
+hive lineage --file /home/alice/code/api/src/auth.py
 ```
 
-### Example Output
+Shows every session that read, wrote, or committed the file, along with associated commit SHAs.
 
-```
-File: /home/alice/code/api/src/auth.py
+## Commit Lineage
 
-Sessions (3):
-  abc123def456  2025-04-18 14:32  "Fix JWT token expiration handling"
-  789def012345  2025-04-15 09:11  "Add role-based access control"
-  456abc789012  2025-04-10 16:45  "Initial auth module setup"
+Find which AI sessions produced a given commit:
 
-Commits (2):
-  a1b2c3d  2025-04-18  Fix token expiration check (linked to abc123def456)
-  d4e5f6g  2025-04-15  Add RBAC middleware (linked to 789def012345)
+```bash
+hive lineage --commit abc123f
 ```
 
-Each session entry shows its ID (prefix), timestamp, and summary. Commits show the hash, date, message, and which session produced them.
+Prefix matching is supported — you don't need the full SHA.
+
+This is useful for:
+
+- **PR context**: Before reviewing a PR, find the AI sessions behind each commit
+- **Debugging**: Trace a bug back to the session that introduced it
+- **Auditing**: Understand the AI conversation that led to a code change
+
+Or ask Claude directly:
+
+```
+> Find sessions for commit abc123f
+> What was the context behind the changes in commit abc123f?
+```
+
+Claude calls the `lineage` MCP tool with the commit SHA and returns the linked sessions.
 
 ## MCP Lineage Tool
 
-Claude Code can query lineage directly through the MCP server:
+Claude Code and Claude Desktop can query lineage directly:
 
-```json
-{
-  "tool": "lineage",
-  "arguments": {
-    "file_path": "src/auth.py"
-  }
-}
+```
+> Which sessions touched src/auth.py?
+> Find sessions for commit abc123f
 ```
 
-The response includes the same session and commit data, structured as JSON for programmatic use.
-
-## REST API
-
-Query lineage over HTTP:
-
-```bash
-curl http://localhost:3000/api/lineage/src/auth.py
-```
+The `lineage` tool accepts `file_path`, `session_id`, or `commit_sha`.
 
 ## Interpreting Results
 
 Lineage is most useful for:
 
-- **Code review**: See which AI sessions touched a file before reviewing changes.
-- **Debugging**: Find the session that introduced a bug by tracing the file's history.
-- **Onboarding**: Understand how a module evolved by reading the linked session summaries.
+- **Code review**: See which AI sessions touched a file before reviewing changes
+- **Debugging**: Find the session that introduced a bug by tracing the file or commit
+- **Onboarding**: Understand how a module evolved by reading the linked session summaries
 
 !!! tip "Combine with `hive show`"
     Found an interesting session in the lineage? Drill into it:
 
     ```bash
-    hive lineage src/auth.py
+    hive lineage --file src/auth.py
     # spot session abc123def456
     hive show abc123def456 --expand-tools
     ```

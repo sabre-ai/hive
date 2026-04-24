@@ -370,10 +370,39 @@ def show(session_id: str, expand_tools: bool):
 
 
 @cli.command()
-@click.argument("file_path")
-def lineage(file_path: str):
-    """Show sessions linked to a file via the edges graph."""
+@click.option("--file", "file_path", help="File path to get lineage for")
+@click.option("--commit", "commit_sha", help="Git commit SHA (full or prefix)")
+def lineage(file_path: str | None, commit_sha: str | None):
+    """Show sessions linked to a file or commit via the edges graph."""
     api = QueryAPI()
+
+    if commit_sha:
+        results = api.get_sessions_by_commit(commit_sha)
+        if not results:
+            console.print(f"[dim]No sessions found for commit {commit_sha}[/dim]")
+            return
+
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("ID", style="cyan", max_width=12)
+        table.add_column("Date", style="green")
+        table.add_column("Author")
+        table.add_column("Summary", max_width=50)
+
+        for s in results:
+            table.add_row(
+                s["id"][:12],
+                str(s.get("started_at", ""))[:10],
+                s.get("author", ""),
+                s.get("summary", ""),
+            )
+
+        console.print(table)
+        return
+
+    if not file_path:
+        console.print("[red]Provide --file or --commit[/red]")
+        return
+
     resolved = str(Path(file_path).resolve())
     edges = api.get_lineage(resolved, id_type="file")
 
