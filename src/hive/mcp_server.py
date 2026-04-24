@@ -53,6 +53,8 @@ class HiveBackend(Protocol):
 
     async def session_lineage(self, session_id: str) -> list[dict]: ...
 
+    async def commit_lineage(self, commit_sha: str) -> list[dict]: ...
+
     async def recent(
         self,
         project: str | None = None,
@@ -111,6 +113,9 @@ class LocalBackend:
 
     async def session_lineage(self, session_id: str) -> list[dict]:
         return self._api.get_lineage(session_id, id_type="session")
+
+    async def commit_lineage(self, commit_sha: str) -> list[dict]:
+        return self._api.get_sessions_by_commit(commit_sha)
 
     async def recent(
         self,
@@ -201,6 +206,9 @@ class RemoteBackend:
 
     async def session_lineage(self, session_id: str) -> list[dict]:
         return await self._get(f"/api/lineage/session/{session_id}")
+
+    async def commit_lineage(self, commit_sha: str) -> list[dict]:
+        return await self._get(f"/api/lineage/commit/{commit_sha}")
 
     async def recent(
         self,
@@ -369,8 +377,10 @@ TOOLS: list[Tool] = [
     Tool(
         name="lineage",
         description=(
-            "Return the lineage graph for a file or session. For files: every session "
-            "that read or modified it. For sessions: linked sessions, files, and commits."
+            "Return the lineage graph for a file, session, or commit. "
+            "For files: every session that read or modified it. "
+            "For sessions: linked sessions, files, and commits. "
+            "For commits: sessions that produced the commit."
         ),
         inputSchema={
             "type": "object",
@@ -382,6 +392,12 @@ TOOLS: list[Tool] = [
                 "session_id": {
                     "type": "string",
                     "description": "Session ID to get lineage for (alternative to file_path).",
+                },
+                "commit_sha": {
+                    "type": "string",
+                    "description": (
+                        "Git commit SHA (full or prefix) to find sessions that produced it."
+                    ),
                 },
             },
         },
@@ -622,11 +638,13 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             return _json_response(session)
 
         if name == "lineage":
-            if "session_id" in arguments:
-                edges = await _local.session_lineage(arguments["session_id"])
+            if "commit_sha" in arguments:
+                results = await _local.commit_lineage(arguments["commit_sha"])
+            elif "session_id" in arguments:
+                results = await _local.session_lineage(arguments["session_id"])
             else:
-                edges = await _local.lineage(arguments["file_path"])
-            return _json_response(edges)
+                results = await _local.lineage(arguments["file_path"])
+            return _json_response(results)
 
         if name == "delete":
             result = await _local.delete_session(arguments["session_id"])
