@@ -4,7 +4,7 @@ site_description: Team server for Claude Code. Capture, enrich, and share AI cod
 site_author: sabre-ai
 repo_url: https://github.com/sabre-ai/hive
 repo_name: sabre-ai/hive
-edit_uri: edit/main/docs/
+edit_uri: ""
 copyright: Copyright &copy; 2026 sabre-ai
 
 theme:
@@ -30,7 +30,7 @@ theme:
     - content.code.copy
     - content.code.annotate
     - content.tabs.link
-    - content.action.edit
+
     - toc.follow
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -118,7 +118,13 @@ extra:
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started/index.md
+  - Getting Started:
+    - Overview: getting-started/index.md
+    - Solo Mode: getting-started/solo-mode.md
+    - Claude Desktop: getting-started/desktop.md
+    - Team Server: getting-started/team-server.md
+    - Troubleshooting: getting-started/troubleshooting.md
+    - FAQ: getting-started/faq.md
   - Tutorials:
     - Overview: tutorials/index.md
     - Daily Workflow: tutorials/workflow.md
