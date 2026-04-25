@@ -27,6 +27,16 @@ hive init
 
 This is safe to run multiple times — it only applies pending migrations and updates hooks to the latest version.
 
+## Restart Claude Code and Claude Desktop
+
+After upgrading, restart **Claude Code** and **Claude Desktop** so their MCP
+server subprocesses pick up the new code. The old version stays in memory until
+you restart.
+
+> **Note:** Claude Desktop uses its own pipx install, so make sure you run
+> `pipx install --force /path/to/hive` (see above) before restarting — otherwise
+> it will still run the old version.
+
 ## Rebuild the search index
 
 If the upgrade includes changes to how sessions are indexed, rebuild the semantic search index:
