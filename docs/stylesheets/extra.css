@@ -63,12 +63,6 @@
   margin: 0 .25rem;
 }
 
-.hive-hero .highlight {
-  max-width: 38rem;
-  margin: 0 auto 1.5rem;
-  text-align: left;
-}
-
 /* Force amber on all buttons */
 .md-typeset .md-button--primary {
   background-color: var(--hive-amber);
@@ -105,4 +99,78 @@
 /* Mermaid diagrams — darker background in light mode */
 .mermaid {
   text-align: center;
+}
+
+/* Hive install pill */
+.hive-install {
+  --hive-amber:        #E8A317;
+  --hive-amber-deep:   #C98A0E;
+  --hive-amber-glow:   rgba(232,163,23,.10);
+  --hive-ink:          #0d1018;
+  --hive-mute:         #9aa0ac;
+  --hive-mute-2:       #6d7280;
+
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: stretch;
+  background: var(--hive-ink);
+  border: 1.5px solid var(--hive-amber);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 4px var(--hive-amber-glow),
+    0 10px 32px rgba(0,0,0,.4);
+  overflow: hidden;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+.hive-install__cmd {
+  flex: 1;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #e5e7ec;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.hive-install__prompt { color: var(--hive-amber); font-weight: 700; user-select: none; }
+.hive-install__bin    { color: var(--hive-mute); }
+.hive-install__url    { color: #ffffff; }
+.hive-install__pipe   { color: var(--hive-mute-2); }
+
+.hive-install__copy {
+  appearance: none;
+  background: var(--hive-amber);
+  border: none;
+  border-left: 1.5px solid var(--hive-amber-deep);
+  color: #0F0F10;
+  padding: 0 22px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: background .12s ease;
+  min-width: 92px;
+}
+.hive-install__copy:hover  { background: #f0b03a; }
+.hive-install__copy:active { background: var(--hive-amber-deep); }
+.hive-install__copy[data-copied="true"] {
+  background: #2ea043;
+  border-left-color: #1f7a31;
+  color: #fff;
+}
+
+@media (max-width: 540px) {
+  .hive-install { flex-direction: column; }
+  .hive-install__copy {
+    border-left: none;
+    border-top: 1.5px solid var(--hive-amber-deep);
+    padding: 12px;
+  }
 }
