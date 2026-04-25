@@ -499,6 +499,13 @@ TOOLS: list[Tool] = [
                     "items": {"type": "string"},
                     "description": "Tags to categorize this session.",
                 },
+                "session_id": {
+                    "type": "string",
+                    "description": (
+                        "Optional. Pass an existing session ID to update it "
+                        "instead of creating a new one."
+                    ),
+                },
             },
             "required": ["title", "content"],
         },
@@ -660,6 +667,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     "content": arguments["content"],
                     "project": project,
                     "tags": arguments.get("tags", []),
+                    "session_id": arguments.get("session_id"),
                 }
             )
             return _json_response({"session_id": session_id, "status": "captured"})

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from hive.capture.claude_code import ClaudeCodeAdapter
+from hive.capture.claude_desktop import ClaudeDesktopAdapter
 from hive.config import Config
 from hive.store.query import QueryAPI
 
@@ -256,3 +257,75 @@ class TestMergeCompactMessages:
         results = query_api.search_sessions("xylophone_unique_keyword")
         assert len(results) > 0
         assert results[0]["id"] == session_id
+
+
+# ── capture_session re-capture (Gap 4) ────────────────────────────────
+
+
+class TestCaptureSessionRecapture:
+    def test_recapture_with_session_id_replaces_content(self, query_api: QueryAPI, config: Config):
+        adapter = ClaudeDesktopAdapter(config=config, skip_init=True)
+        adapter._api = query_api
+
+        session_id = "recapture-test-001"
+
+        # First capture
+        adapter._ingest(
+            {
+                "title": "Test session",
+                "content": "Human: hello\nAssistant: hi",
+                "tags": ["draft"],
+                "session_id": session_id,
+            }
+        )
+
+        # Re-capture with more content
+        adapter._ingest(
+            {
+                "title": "Test session updated",
+                "content": "Human: hello\nAssistant: hi\nHuman: how are you\nAssistant: great",
+                "tags": ["final"],
+                "session_id": session_id,
+            }
+        )
+
+        session = query_api.get_session(session_id)
+        assert session is not None
+        assert session["summary"] == "Test session updated"
+        assert session["message_count"] == 4
+
+        # Tags should not be duplicated
+        annotations = session["annotations"]
+        tag_values = [a["value"] for a in annotations if a["type"] == "tag"]
+        assert "final" in tag_values
+        # "draft" was deleted on re-capture
+        assert "draft" not in tag_values
+
+    def test_capture_without_session_id_uses_content_hash(
+        self, query_api: QueryAPI, config: Config
+    ):
+        adapter = ClaudeDesktopAdapter(config=config, skip_init=True)
+        adapter._api = query_api
+
+        sid1 = adapter._ingest(
+            {"title": "Test", "content": "Human: hello\nAssistant: hi", "tags": []}
+        )
+        sid2 = adapter._ingest(
+            {"title": "Test", "content": "Human: hello\nAssistant: hi", "tags": []}
+        )
+        # Same content = same session ID (idempotent)
+        assert sid1 == sid2
+
+    def test_capture_different_content_creates_new_session(
+        self, query_api: QueryAPI, config: Config
+    ):
+        adapter = ClaudeDesktopAdapter(config=config, skip_init=True)
+        adapter._api = query_api
+
+        sid1 = adapter._ingest(
+            {"title": "Test", "content": "Human: hello\nAssistant: hi", "tags": []}
+        )
+        sid2 = adapter._ingest(
+            {"title": "Test", "content": "Human: goodbye\nAssistant: bye", "tags": []}
+        )
+        assert sid1 != sid2
