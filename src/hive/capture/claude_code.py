@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -73,7 +73,7 @@ class ClaudeCodeAdapter(CaptureAdapter):
         project_path: str = data.get("project_path", "")
 
         git = _collect_git_state(project_path) if project_path else {}
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         self._api.upsert_session(
             {
@@ -123,7 +123,7 @@ class ClaudeCodeAdapter(CaptureAdapter):
 
         summary = _derive_summary(messages)
 
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._api.upsert_session(
             {
                 "id": session_id,
@@ -185,7 +185,7 @@ class ClaudeCodeAdapter(CaptureAdapter):
             return
 
         scrubbed = scrub(raw, self._config)
-        ts = datetime.now(UTC).isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
         self._api.insert_enrichment(session_id, "compact_snapshot", f"transcript_{ts}", scrubbed)
 
     def _maybe_push(self, session_id: str, project_path: str) -> None:
@@ -309,7 +309,7 @@ class ClaudeCodeAdapter(CaptureAdapter):
                 continue
 
             # Derive timestamps from the first and last message.
-            started = messages[0].get("timestamp") or datetime.now(UTC).isoformat()
+            started = messages[0].get("timestamp") or datetime.now(timezone.utc).isoformat()
             ended = messages[-1].get("timestamp") or started
 
             summary = _derive_summary(messages)

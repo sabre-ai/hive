@@ -13,11 +13,17 @@ from hive.search.witchcraft import WitchcraftBackend
 
 def _has_search_deps() -> bool:
     try:
-        import sentence_transformers  # noqa: F401
-        import sqlite_vec  # noqa: F401
+        import sqlite3
 
+        import sentence_transformers  # noqa: F401
+        import sqlite_vec
+
+        conn = sqlite3.connect(":memory:")
+        conn.enable_load_extension(True)
+        sqlite_vec.load(conn)
+        conn.close()
         return True
-    except ImportError:
+    except (ImportError, AttributeError, Exception):
         return False
 
 

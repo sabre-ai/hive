@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import subprocess
 import textwrap
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from hive.config import Config
@@ -164,7 +164,7 @@ class GitCommitHook:
     def _find_recent_session(self) -> dict | None:
         """Return the most recently ended session within the link window."""
         window = self._config.link_window_minutes
-        cutoff = (datetime.now(UTC) - timedelta(minutes=window)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=window)).isoformat()
 
         sessions = self._api.list_sessions(since=cutoff, limit=1)
         if not sessions:

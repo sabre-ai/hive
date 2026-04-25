@@ -128,13 +128,17 @@ class SqliteVecBackend(SearchBackend):
         return [e.tolist() for e in embeddings]
 
     def is_available(self) -> bool:
-        """Check if sqlite-vec and sentence-transformers are importable."""
+        """Check if sqlite-vec and sentence-transformers can actually be used."""
         try:
             import sentence_transformers  # noqa: F401
-            import sqlite_vec  # noqa: F401
+            import sqlite_vec
 
+            conn = sqlite3.connect(":memory:")
+            conn.enable_load_extension(True)
+            sqlite_vec.load(conn)
+            conn.close()
             return True
-        except ImportError:
+        except (ImportError, AttributeError, Exception):
             return False
 
     def add_document(

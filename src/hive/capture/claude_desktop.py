@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from hive.capture.base import CaptureAdapter
@@ -56,7 +56,7 @@ class ClaudeDesktopAdapter(CaptureAdapter):
 
         # Use explicit session ID if provided, otherwise derive from content hash
         session_id = explicit_id or self._make_session_id(content or title)
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Build summary from title or first message
         summary = title or self._make_summary(messages)
