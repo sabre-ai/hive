@@ -60,16 +60,23 @@
 }
 
 .hive-hero .md-button {
-  margin: 0 .25rem;
-  font-size: .75rem;
-  padding: .4em 1.2em;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin: 0 6px;
+}
+
+.hive-hero .hive-install + p {
+  margin-top: 22px;
 }
 
 /* Force amber on all buttons */
 .md-typeset .md-button--primary {
   background-color: var(--hive-amber);
   border-color: var(--hive-amber);
-  color: var(--hive-ink);
+  color: #0F0F10;
 }
 
 .md-typeset .md-button--primary:hover {
@@ -78,13 +85,14 @@
 }
 
 .md-typeset .md-button:not(.md-button--primary) {
-  border-color: var(--hive-amber);
+  border: 1px solid var(--hive-amber);
   color: var(--hive-amber);
+  background: transparent;
 }
 
 .md-typeset .md-button:not(.md-button--primary):hover {
   background-color: var(--hive-amber);
-  color: var(--hive-ink);
+  color: #0F0F10;
 }
 
 /* Nicer grid cards */
@@ -113,25 +121,25 @@
   --hive-mute-2:       #6d7280;
 
   width: 100%;
-  max-width: 780px;
-  margin: 0 auto 1.5rem;
+  max-width: 680px;
+  margin: 0 auto;
   display: flex;
   align-items: stretch;
   background: var(--hive-ink);
   border: 1.5px solid var(--hive-amber);
-  border-radius: 12px;
+  border-radius: 8px;
   box-shadow:
     0 0 0 4px var(--hive-amber-glow),
     0 10px 32px rgba(0,0,0,.4);
   overflow: hidden;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 22px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
 .hive-install__cmd {
   flex: 1;
-  padding: 22px 28px;
+  padding: 16px 22px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -151,14 +159,14 @@
   border: none;
   border-left: 1.5px solid var(--hive-amber-deep);
   color: #0F0F10;
-  padding: 0 36px;
+  padding: 0 26px;
   font-family: inherit;
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: .1em;
   cursor: pointer;
   transition: background .12s ease;
-  min-width: 92px;
+  min-width: 96px;
 }
 .hive-install__copy:hover  { background: #f0b03a; }
 .hive-install__copy:active { background: var(--hive-amber-deep); }
