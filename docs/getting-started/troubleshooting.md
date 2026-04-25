@@ -13,7 +13,7 @@
     ```
 
 ??? tip "`ModuleNotFoundError: No module named 'tomllib'`"
-    You need Python 3.11+. Check with `python3 --version`.
+    You need Python 3.10+. Check with `python3 --version`.
 
 ??? tip "`sqlite3.OperationalError: no such module: fts5`"
     Your Python was built without FTS5. On Ubuntu: `sudo apt install libsqlite3-dev` and rebuild Python.

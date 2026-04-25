@@ -68,7 +68,7 @@ src/hive/
 
 ## Code Style
 
-- Python 3.11+, line length 100
+- Python 3.10+, line length 100
 - Ruff rules: E, F, I, UP, B, SIM (E501 and SIM105 ignored)
 - Double quotes
 - Pre-commit hooks run ruff check --fix and ruff format

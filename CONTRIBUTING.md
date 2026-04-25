@@ -85,7 +85,7 @@ src/hive/
 
 ## Code Style
 
-- Python 3.11+ with type hints
+- Python 3.10+ with type hints
 - Formatted with `ruff format`
 - Linted with `ruff check`
 - No unnecessary abstractions — keep it simple
