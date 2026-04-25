@@ -134,22 +134,24 @@
     0 16px 44px rgba(0,0,0,.5);
   overflow: hidden;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 16px;
-  line-height: 1.4;
+  font-size: 18px;
+  line-height: 4;
 }
 
 .hive-install__cmd {
   flex: 1;
-  padding: 22px 28px;
+  padding: 23px 28px;
+  background-color: transparent;
+  border-radius: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 4px;
   color: #e5e7ec;
   overflow-x: auto;
   white-space: nowrap;
 }
 
-.hive-install__prompt { color: var(--hive-amber); font-weight: 700; user-select: none; }
+.hive-install__prompt { color: var(--hive-amber); font-weight: 900; user-select: none; }
 .hive-install__bin    { color: var(--hive-mute); }
 .hive-install__url    { color: #ffffff; }
 .hive-install__pipe   { color: var(--hive-mute-2); }
