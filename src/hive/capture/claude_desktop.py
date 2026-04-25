@@ -40,25 +40,31 @@ class ClaudeDesktopAdapter(CaptureAdapter):
         if event_name in ("Import", "MCPCapture"):
             self._ingest(data)
 
-    def _ingest(self, data: dict[str, Any]) -> None:
+    def _ingest(self, data: dict[str, Any]) -> str | None:
         """Ingest a session from either MCP capture or CLI import."""
         content = data.get("content", "")
         title = data.get("title", "")
         project = data.get("project")
         tags = data.get("tags", [])
         author = data.get("author")
+        explicit_id = data.get("session_id")
 
         # Parse content into messages
         messages = self._parse_messages(content)
         if not messages and not title:
-            return
+            return None
 
-        # Deterministic session ID from content hash (idempotent re-import)
-        session_id = self._make_session_id(content or title)
+        # Use explicit session ID if provided, otherwise derive from content hash
+        session_id = explicit_id or self._make_session_id(content or title)
         now = datetime.now(UTC).isoformat()
 
         # Build summary from title or first message
         summary = title or self._make_summary(messages)
+
+        # On re-capture, clear existing messages and annotations so we replace cleanly
+        if explicit_id:
+            self._api.delete_messages(session_id)
+            self._api.delete_annotations(session_id, ann_type="tag")
 
         # Upsert session
         self._api.upsert_session(
