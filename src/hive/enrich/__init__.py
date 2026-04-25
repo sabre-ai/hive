@@ -26,6 +26,8 @@ def run_enrichers(session_id: str, session: dict, query_api: QueryAPI) -> None:
                 continue
             results = enricher.run(session)
             for key, value in results.items():
-                query_api.insert_enrichment(session_id, enricher.name(), key, str(value))
+                query_api.insert_enrichment(
+                    session_id, enricher.name(), key, str(value), upsert=True
+                )
         except Exception:
             log.exception("Enricher %s failed for session %s", enricher.name(), session_id)
