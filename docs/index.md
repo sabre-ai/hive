@@ -10,7 +10,11 @@ hide:
 
 Every Claude Code run, every Claude Desktop thread — captured to one searchable history. Solo by default, your team when you're ready.
 
-[Get started :material-arrow-right:](getting-started/index.md){ .md-button .md-button--primary }
+```bash
+curl https://sabre-ai.github.io/hive/install.sh | bash
+```
+
+[Read the Docs :material-arrow-right:](getting-started/index.md){ .md-button .md-button--primary }
 [View on GitHub :fontawesome-brands-github:](https://github.com/sabre-ai/hive){ .md-button }
 
 </div>

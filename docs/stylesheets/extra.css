@@ -63,6 +63,12 @@
   margin: 0 .25rem;
 }
 
+.hive-hero .highlight {
+  max-width: 38rem;
+  margin: 0 auto 1.5rem;
+  text-align: left;
+}
+
 /* Force amber on all buttons */
 .md-typeset .md-button--primary {
   background-color: var(--hive-amber);
