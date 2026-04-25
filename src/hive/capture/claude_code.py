@@ -92,7 +92,7 @@ class ClaudeCodeAdapter(CaptureAdapter):
         for key in ("branch", "commit", "remote"):
             value = git.get(key)
             if value:
-                self._api.insert_enrichment(session_id, "git", key, value)
+                self._api.insert_enrichment(session_id, "git", key, value, upsert=True)
 
     def _on_stop(self, data: dict) -> None:
         """Parse the session JSONL transcript and persist messages."""
@@ -106,6 +106,9 @@ class ClaudeCodeAdapter(CaptureAdapter):
         messages = self._parse_jsonl(session_id, transcript_path)
         if not messages:
             return
+
+        # Merge any pre-compact snapshots so compacted-away content is preserved
+        messages = self._merge_compact_messages(session_id, messages)
 
         self._api.insert_messages(messages)
 
@@ -156,16 +159,13 @@ class ClaudeCodeAdapter(CaptureAdapter):
 
         file_paths = _extract_file_paths(tool_name, data.get("tool_input", {}))
         for fp in file_paths:
-            try:
-                self._api.insert_edge(
-                    source_type="session",
-                    source_id=session_id,
-                    target_type="file",
-                    target_id=fp,
-                    relationship="touched",
-                )
-            except Exception:
-                logger.debug("Duplicate edge session=%s file=%s (skipped)", session_id, fp)
+            self._api.insert_edge(
+                source_type="session",
+                source_id=session_id,
+                target_type="file",
+                target_id=fp,
+                relationship="touched",
+            )
 
     def _on_pre_compact(self, data: dict) -> None:
         """Snapshot the full conversation before Claude compacts it."""
@@ -185,7 +185,8 @@ class ClaudeCodeAdapter(CaptureAdapter):
             return
 
         scrubbed = scrub(raw, self._config)
-        self._api.insert_enrichment(session_id, "compact_snapshot", "transcript", scrubbed)
+        ts = datetime.now(UTC).isoformat()
+        self._api.insert_enrichment(session_id, "compact_snapshot", f"transcript_{ts}", scrubbed)
 
     def _maybe_push(self, session_id: str, project_path: str) -> None:
         """Push session to team server if sharing is enabled for this project."""
@@ -490,10 +491,12 @@ class ClaudeCodeAdapter(CaptureAdapter):
         )
         if total_tokens > 0:
             for key, value in totals.items():
-                self._api.insert_enrichment(session_id, "tokens", key, str(value))
-            self._api.insert_enrichment(session_id, "tokens", "total_tokens", str(total_tokens))
+                self._api.insert_enrichment(session_id, "tokens", key, str(value), upsert=True)
+            self._api.insert_enrichment(
+                session_id, "tokens", "total_tokens", str(total_tokens), upsert=True
+            )
         if model:
-            self._api.insert_enrichment(session_id, "tokens", "model", model)
+            self._api.insert_enrichment(session_id, "tokens", "model", model, upsert=True)
 
     def _backfill_edges(self, session_id: str, path: Path) -> None:
         """Scan JSONL for tool_use blocks and create file edges retroactively."""
@@ -567,7 +570,16 @@ class ClaudeCodeAdapter(CaptureAdapter):
         return None
 
     def _parse_jsonl(self, session_id: str, path: Path) -> list[dict[str, Any]]:
-        """Read a Claude Code JSONL transcript and return normalised messages.
+        """Read a Claude Code JSONL transcript and return normalised messages."""
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except OSError:
+            logger.warning("Could not read transcript %s", path)
+            return []
+        return self._parse_jsonl_string(session_id, raw)
+
+    def _parse_jsonl_string(self, session_id: str, raw: str) -> list[dict[str, Any]]:
+        """Parse a JSONL string into normalised messages.
 
         Real JSONL format per line::
 
@@ -584,13 +596,7 @@ class ClaudeCodeAdapter(CaptureAdapter):
         messages: list[dict[str, Any]] = []
         ordinal = 0
 
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            logger.warning("Could not read transcript %s", path)
-            return []
-
-        for line in lines:
+        for line in raw.splitlines():
             line = line.strip()
             if not line:
                 continue
@@ -598,7 +604,7 @@ class ClaudeCodeAdapter(CaptureAdapter):
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
-                logger.debug("Skipping malformed JSONL line in %s", path)
+                logger.debug("Skipping malformed JSONL line")
                 continue
 
             # Skip non-message record types
@@ -633,6 +639,47 @@ class ClaudeCodeAdapter(CaptureAdapter):
             )
 
         return messages
+
+    def _merge_compact_messages(
+        self, session_id: str, jsonl_messages: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Merge pre-compact snapshot messages with JSONL messages.
+
+        If compaction occurred, the JSONL may be truncated. Snapshot messages
+        that are not present in the JSONL are appended so they become
+        searchable.  Deduplication uses a fingerprint of (role, first 200
+        chars of content).
+        """
+        snapshots = self._api.get_compact_snapshots(session_id)
+        if not snapshots:
+            return jsonl_messages
+
+        # Build fingerprint set from JSONL messages for dedup
+        def _fingerprint(msg: dict) -> str:
+            content = msg.get("content") or ""
+            return f"{msg.get('role', '')}:{content[:200]}"
+
+        seen = {_fingerprint(m) for m in jsonl_messages}
+
+        # Parse each snapshot and collect messages not already in JSONL
+        extra: list[dict[str, Any]] = []
+        for raw_snapshot in snapshots:
+            snapshot_msgs = self._parse_jsonl_string(session_id, raw_snapshot)
+            for msg in snapshot_msgs:
+                fp = _fingerprint(msg)
+                if fp not in seen:
+                    seen.add(fp)
+                    extra.append(msg)
+
+        if not extra:
+            return jsonl_messages
+
+        # Append snapshot-only messages after JSONL messages with sequential ordinals
+        next_ordinal = max((m["ordinal"] for m in jsonl_messages), default=0) + 1
+        for i, msg in enumerate(extra):
+            msg["ordinal"] = next_ordinal + i
+
+        return jsonl_messages + extra
 
     def _extract_metadata(self, path: Path) -> dict[str, str]:
         """Extract project path and other metadata from the first few JSONL lines."""
