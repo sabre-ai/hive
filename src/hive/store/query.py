@@ -724,10 +724,32 @@ class QueryAPI:
         author: str = "user",
     ) -> int:
         with self._session() as session:
+            existing = session.execute(
+                select(Annotation).where(
+                    Annotation.session_id == session_id,
+                    Annotation.type == ann_type,
+                    Annotation.value == value,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                return existing.id
             ann = Annotation(session_id=session_id, type=ann_type, value=value, author=author)
             session.add(ann)
             session.commit()
             return ann.id
+
+    def delete_annotations(self, session_id: str, ann_type: str | None = None) -> None:
+        with self._session() as session:
+            q = delete(Annotation).where(Annotation.session_id == session_id)
+            if ann_type:
+                q = q.where(Annotation.type == ann_type)
+            session.execute(q)
+            session.commit()
+
+    def delete_messages(self, session_id: str) -> None:
+        with self._session() as session:
+            session.execute(delete(Message).where(Message.session_id == session_id))
+            session.commit()
 
     # ── Write helpers (used by capture/enrich) ──────────────────────
 
@@ -777,10 +799,41 @@ class QueryAPI:
                     )
             session.commit()
 
-    def insert_enrichment(self, session_id: str, source: str, key: str, value: str) -> None:
+    def insert_enrichment(
+        self, session_id: str, source: str, key: str, value: str, *, upsert: bool = False
+    ) -> None:
         with self._session() as session:
+            if upsert:
+                existing = session.execute(
+                    select(Enrichment).where(
+                        Enrichment.session_id == session_id,
+                        Enrichment.source == source,
+                        Enrichment.key == key,
+                    )
+                ).scalar_one_or_none()
+                if existing is not None:
+                    existing.value = value
+                    session.commit()
+                    return
             session.add(Enrichment(session_id=session_id, source=source, key=key, value=value))
             session.commit()
+
+    def get_compact_snapshots(self, session_id: str) -> list[str]:
+        """Return all compact snapshot values for a session, ordered by time."""
+        with self._session() as session:
+            rows = (
+                session.execute(
+                    select(Enrichment.value)
+                    .where(
+                        Enrichment.session_id == session_id,
+                        Enrichment.source == "compact_snapshot",
+                    )
+                    .order_by(Enrichment.enriched_at)
+                )
+                .scalars()
+                .all()
+            )
+            return [v for v in rows if v]
 
     def insert_edge(
         self,
@@ -791,6 +844,17 @@ class QueryAPI:
         relationship: str,
     ) -> None:
         with self._session() as session:
+            existing = session.execute(
+                select(Edge).where(
+                    Edge.source_type == source_type,
+                    Edge.source_id == source_id,
+                    Edge.target_type == target_type,
+                    Edge.target_id == target_id,
+                    Edge.relationship_ == relationship,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                return
             session.add(
                 Edge(
                     source_type=source_type,

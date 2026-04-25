@@ -9,6 +9,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -99,6 +100,7 @@ class Annotation(Base):
 
     __table_args__ = (
         CheckConstraint("type IN ('tag', 'comment', 'rating')", name="ck_annotations_type"),
+        UniqueConstraint("session_id", "type", "value", name="uq_annotations_dedup"),
         Index("idx_annotations_session", "session_id"),
     )
 
@@ -115,6 +117,14 @@ class Edge(Base):
     created_at: Mapped[str | None] = mapped_column(String, server_default=text("CURRENT_TIMESTAMP"))
 
     __table_args__ = (
+        UniqueConstraint(
+            "source_type",
+            "source_id",
+            "target_type",
+            "target_id",
+            "relationship",
+            name="uq_edges_dedup",
+        ),
         Index("idx_edges_source", "source_type", "source_id"),
         Index("idx_edges_target", "target_type", "target_id"),
     )
