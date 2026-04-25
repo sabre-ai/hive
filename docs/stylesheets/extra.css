@@ -121,28 +121,28 @@
   --hive-mute-2:       #6d7280;
 
   width: 100%;
-  max-width: 680px;
+  max-width: 860px;
   margin: 0 auto;
   display: flex;
   align-items: stretch;
   background: var(--hive-ink);
   border: 1.5px solid var(--hive-amber);
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow:
-    0 0 0 4px var(--hive-amber-glow),
-    0 10px 32px rgba(0,0,0,.4);
+    0 0 0 5px rgba(232,163,23,.12),
+    0 14px 40px rgba(0,0,0,.45);
   overflow: hidden;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.4;
 }
 
 .hive-install__cmd {
   flex: 1;
-  padding: 16px 22px;
+  padding: 20px 28px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   color: #e5e7ec;
   overflow-x: auto;
   white-space: nowrap;
@@ -159,14 +159,14 @@
   border: none;
   border-left: 1.5px solid var(--hive-amber-deep);
   color: #0F0F10;
-  padding: 0 26px;
+  padding: 0 32px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: .1em;
   cursor: pointer;
   transition: background .12s ease;
-  min-width: 96px;
+  min-width: 110px;
 }
 .hive-install__copy:hover  { background: #f0b03a; }
 .hive-install__copy:active { background: var(--hive-amber-deep); }
