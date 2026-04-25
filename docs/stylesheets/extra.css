@@ -113,25 +113,25 @@
   --hive-mute-2:       #6d7280;
 
   width: 100%;
-  max-width: 680px;
+  max-width: 780px;
   margin: 0 auto 1.5rem;
   display: flex;
   align-items: stretch;
   background: var(--hive-ink);
   border: 1.5px solid var(--hive-amber);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow:
     0 0 0 4px var(--hive-amber-glow),
     0 10px 32px rgba(0,0,0,.4);
   overflow: hidden;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 17px;
+  font-size: 22px;
   line-height: 1.4;
 }
 
 .hive-install__cmd {
   flex: 1;
-  padding: 16px 24px;
+  padding: 22px 28px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -151,9 +151,9 @@
   border: none;
   border-left: 1.5px solid var(--hive-amber-deep);
   color: #0F0F10;
-  padding: 0 28px;
+  padding: 0 36px;
   font-family: inherit;
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: .1em;
   cursor: pointer;
