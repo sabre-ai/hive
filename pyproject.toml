@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hive-team"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Team server for Claude Code — capture, enrich, and share AI coding sessions"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -69,6 +69,8 @@ Documentation = "https://github.com/sabre-ai/hive/tree/main/docs"
 
 [project.scripts]
 hive = "hive.cli:cli"
+
+[tool.setuptools_scm]
 
 [tool.setuptools.packages.find]
 where = ["src"]
