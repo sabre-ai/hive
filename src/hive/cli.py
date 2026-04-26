@@ -75,6 +75,7 @@ def init(project: str):
         console.print(f"  Sharing already enabled (server: {config.server_url})")
 
     # 6. Backfill existing sessions
+    count = 0
     console.print("  Backfilling existing sessions...", end=" ")
     try:
         from hive.capture.claude_code import ClaudeCodeAdapter
@@ -92,6 +93,24 @@ def init(project: str):
     console.print("\n[bold green]hive is ready![/bold green]")
     console.print(f"  Database: {config.db_path}")
     console.print(f"  Config:   {config_path}")
+
+    # 8. Build search index in background
+    if count > 0:
+        import shutil
+        import subprocess
+
+        hive_bin = shutil.which("hive")
+        if hive_bin:
+            console.print(
+                f"\n  [dim]Indexing {count} sessions for search in the background."
+                " Search results may be incomplete until indexing finishes.[/dim]"
+            )
+            subprocess.Popen(
+                [hive_bin, "reindex"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
 
 
 def _install_claude_hooks(project_path: Path):
@@ -177,23 +196,38 @@ def _install_git_hook(project_path: Path):
 
 
 def _offer_mcp_setup():
-    """Offer to add hive MCP server to Claude Code config."""
+    """Show MCP setup instructions only if not already configured."""
     import shutil
+    import subprocess
 
-    console.print("  MCP server configuration:")
+    hive_bin = shutil.which("hive") or "hive"
 
-    # Find the hive binary
-    hive_bin = shutil.which("hive")
-    if not hive_bin:
-        hive_bin = "hive"
+    # Check if Claude Code MCP is already configured
+    mcp_configured = False
+    if shutil.which("claude"):
+        try:
+            result = subprocess.run(
+                ["claude", "mcp", "list"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if "hive" in result.stdout:
+                mcp_configured = True
+        except Exception:
+            pass
 
-    console.print("    [bold]Claude Code:[/bold]")
-    console.print(f"    claude mcp add --transport stdio hive -- {hive_bin} mcp")
-    console.print("    Then restart Claude Code and verify with /mcp")
-    console.print()
-    console.print("    [bold]Claude Desktop (optional):[/bold]")
-    console.print("    Add to ~/Library/Application Support/Claude/claude_desktop_config.json:")
-    console.print(f'    {{"mcpServers": {{"hive": {{"command": "{hive_bin}", "args": ["mcp"]}}}}}}')
+    if not mcp_configured:
+        console.print("  MCP server configuration:")
+        console.print("    [bold]Claude Code:[/bold]")
+        console.print(f"    claude mcp add --transport stdio hive -- {hive_bin} mcp")
+        console.print("    Then restart Claude Code and verify with /mcp")
+        console.print()
+        console.print("    [bold]Claude Desktop (optional):[/bold]")
+        console.print("    Add to ~/Library/Application Support/Claude/claude_desktop_config.json:")
+        console.print(
+            f'    {{"mcpServers": {{"hive": {{"command": "{hive_bin}", "args": ["mcp"]}}}}}}'
+        )
 
 
 # ── config ─────────────────────────────────────────────────────────
@@ -828,27 +862,21 @@ def serve(port: int | None, no_search: bool):
 # ── reindex ─────────────────────────────────────────────────────────
 
 
-@cli.command()
-def reindex():
-    """Rebuild the search index from all stored sessions."""
+def _reindex_sessions(config: Config, verbose: bool = False) -> int:
+    """Index all sessions into the search backend. Returns count indexed."""
     from hive.search import build_metadata, build_search_body, get_search_backend
     from hive.store.query import QueryAPI
 
-    config = Config.load()
     backend = get_search_backend(config)
-
     if not backend.is_available():
-        console.print(f"[red]Search backend ({config.search_backend}) is not available.[/red]")
-        if config.search_backend == "witchcraft":
-            console.print("Start it with: hive-search --db-path ~/.hive/search.db --assets <path>")
-        elif config.search_backend == "sqlite-vec":
-            console.print("Install dependencies: pip install 'hive-team[search]'")
-        return
+        raise RuntimeError(f"Search backend ({config.search_backend}) is not available")
 
     api = QueryAPI(config)
     sessions = api.list_sessions(limit=100000)
     total = len(sessions)
-    console.print(f"Reindexing {total} sessions into {config.search_backend} search backend...")
+
+    if verbose:
+        console.print(f"Reindexing {total} sessions into {config.search_backend} search backend...")
 
     indexed = 0
     for i, session in enumerate(sessions, 1):
@@ -865,21 +893,26 @@ def reindex():
             backend.add_document(full["id"], full.get("started_at"), metadata, body, chunk_lengths)
             indexed += 1
         except Exception as e:
-            console.print(f"  [red]Failed[/red] {full['id'][:12]}: {e}")
+            if verbose:
+                console.print(f"  [red]Failed[/red] {full['id'][:12]}: {e}")
 
-        if i % 10 == 0:
+        if verbose and i % 10 == 0:
             console.print(f"  [{i}/{total}] processed...")
 
-    # Trigger embedding and indexing for all new documents
-    console.print("Triggering embedding and indexing...")
+    backend.trigger_index()
+    return indexed
+
+
+@cli.command()
+def reindex():
+    """Rebuild the search index from all stored sessions."""
+    config = Config.load()
     try:
-        result = backend.trigger_index()
-        console.print(
-            f"[green]Done.[/green] Indexed {indexed} sessions, "
-            f"embedded {result.get('embedded', 0)} chunks."
-        )
-    except Exception as e:
-        console.print(f"[red]Indexing failed:[/red] {e}")
+        console.print("Triggering embedding and indexing...")
+        indexed = _reindex_sessions(config, verbose=True)
+        console.print(f"[green]Done.[/green] Indexed {indexed} sessions.")
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/red]")
 
 
 # ── mcp ─────────────────────────────────────────────────────────────
