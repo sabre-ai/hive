@@ -75,6 +75,7 @@ def init(project: str):
         console.print(f"  Sharing already enabled (server: {config.server_url})")
 
     # 6. Backfill existing sessions
+    count = 0
     console.print("  Backfilling existing sessions...", end=" ")
     try:
         from hive.capture.claude_code import ClaudeCodeAdapter
