@@ -1,20 +1,25 @@
-# Solo Mode
+# Quick Start
 
 Install hive and capture your first session. Everything stays on your local machine.
 
+## Install
+
 ```bash
-git clone https://github.com/sabre-ai/hive.git
-cd hive
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
+curl https://sabre-ai.github.io/hive/install.sh | bash
 ```
 
-!!! warning "venv installs are terminal-specific"
-    The `hive` command only works while the venv is active. Each new terminal
-    needs `source /path/to/hive/.venv/bin/activate`. For a global install
-    (works in all terminals), use `pipx install /path/to/hive` instead.
+This installs the hive CLI and configures the MCP server for both Claude Code and Claude Desktop (macOS).
 
-In hive, a **project** is any directory where you use Claude Code — typically a git repo. Claude Code already stores your session history per directory under `~/.claude/projects/`. Running `hive init` in a project directory imports that history into hive and installs hooks for automatic future capture.
+??? note "What the installer does"
+    1. Installs `uv` if not present
+    2. Downloads and installs the hive Python package from the latest GitHub release
+    3. Configures Claude Code MCP server (`claude mcp add`)
+    4. Configures Claude Desktop MCP server (macOS only)
+    5. Creates config at `~/.config/hive/config.toml`
+
+## Enable capture for a project
+
+In hive, a **project** is any directory where you use Claude Code — typically a git repo. Running `hive init` imports existing history and installs hooks for automatic future capture.
 
 ```bash
 cd your-project
@@ -25,20 +30,13 @@ When prompted "Enable sharing to team server?", answer **N** — you can enable 
 
 ??? note "What `hive init` does"
     1. Creates `~/.local/share/hive/store.db` (SQLite database)
-    2. Creates `~/.config/hive/config.toml` (default settings)
-    3. Installs Claude Code hooks in `.claude/settings.json`
-    4. Installs a git `post-commit` hook
-    5. Backfills **all** existing Claude Code sessions for this project — current and past
-
-Now register hive as an MCP server so Claude can search your history:
-
-```bash
-claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
-```
+    2. Installs Claude Code hooks in `.claude/settings.json`
+    3. Installs a git `post-commit` hook
+    4. Backfills **all** existing Claude Code sessions for this project
 
 Restart Claude Code and verify with `/mcp` — you should see `hive` listed.
 
-**Try it:**
+## Try it
 
 ```bash
 hive log                          # see captured sessions
@@ -52,10 +50,25 @@ Or ask Claude directly:
 > Show me the session where I refactored the payment handler
 ```
 
-You now have automatic session capture, local search, and Claude can query your entire coding history.
+## Claude Desktop
+
+Claude Code sessions are captured **automatically** via hooks. Claude Desktop has no hook system, so capture is **on demand** — you ask Claude to save conversations worth keeping.
+
+To save a Desktop conversation:
+
+```
+Save this conversation to hive
+```
+
+Claude calls the `capture_session` MCP tool and the conversation is stored with source `claude_desktop`. When Claude Code later references that session, hive automatically links them. View the chain with:
+
+```bash
+hive lineage <session-id>
+```
 
 ## Next Steps
 
-- [Connect Claude Desktop](desktop.md) — unified history across Code and Desktop
+- [Team Server](team-server.md) — share sessions across your team
 - [Daily Workflow](../tutorials/workflow.md) — day-to-day patterns
 - [Searching Your History](../tutorials/searching.md) — advanced search and FTS5 syntax
+- [Asking Claude](../tutorials/asking-claude.md) — MCP tools and prompt examples

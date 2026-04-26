@@ -39,11 +39,11 @@ hive config sharing on
 ```
 
 !!! note "First time installing hive?"
-    If you haven't completed [Solo Mode](solo-mode.md), run these steps first:
+    If you haven't completed the [Quick Start](solo-mode.md), install hive first:
     ```bash
+    curl https://sabre-ai.github.io/hive/install.sh | bash
     cd your-project
     hive init                                                  # say Y to sharing
-    claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
     ```
 
 Verify the connection:

@@ -120,9 +120,9 @@ nav:
   - Home: index.md
   - Getting Started:
     - Overview: getting-started/index.md
-    - Solo Mode: getting-started/solo-mode.md
-    - Claude Desktop: getting-started/desktop.md
+    - Quick Start: getting-started/solo-mode.md
     - Team Server: getting-started/team-server.md
+    - Install from Source: getting-started/install-from-source.md
     - Upgrading: getting-started/upgrading.md
     - Troubleshooting: getting-started/troubleshooting.md
     - FAQ: getting-started/faq.md

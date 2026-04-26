@@ -17,19 +17,21 @@ Design decisions, debugging sessions, architecture discussions, code reviews —
 ## Quick Start
 
 ```bash
-git clone https://github.com/sabre-ai/hive.git
-cd hive
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
+curl https://sabre-ai.github.io/hive/install.sh | bash
+```
 
+This installs hive and configures the MCP server for both Claude Code and Claude Desktop. Then enable capture for each project:
+
+```bash
 cd your-project
 hive init
-claude mcp add --scope user --transport stdio hive -- /path/to/hive/.venv/bin/hive mcp
 ```
 
 Ask Claude: *"What did I work on today?"*
 
-See the [Getting Started guide](https://sabre-ai.github.io/hive/getting-started/) for Claude Desktop setup, team server deployment, and Docker.
+See the [Getting Started guide](https://sabre-ai.github.io/hive/getting-started/) for team server deployment and Docker.
+
+> **Developing hive?** See [Install from Source](https://sabre-ai.github.io/hive/getting-started/install-from-source/) for the git clone + venv workflow.
 
 ## What Claude Can Do
 
