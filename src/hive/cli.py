@@ -85,7 +85,16 @@ def init(project: str):
     except Exception as e:
         console.print(f"[yellow]skipped[/yellow] ({e})")
 
-    # 7. Offer MCP setup
+    # 7. Build search index
+    if count > 0:
+        console.print("  Building search index...", end=" ")
+        try:
+            indexed = _reindex_sessions(config)
+            console.print(f"[green]✓[/green] ({indexed} sessions)")
+        except Exception as e:
+            console.print(f"[yellow]skipped[/yellow] ({e})")
+
+    # 8. Offer MCP setup
     console.print()
     _offer_mcp_setup()
 
@@ -828,27 +837,21 @@ def serve(port: int | None, no_search: bool):
 # ── reindex ─────────────────────────────────────────────────────────
 
 
-@cli.command()
-def reindex():
-    """Rebuild the search index from all stored sessions."""
+def _reindex_sessions(config: Config, verbose: bool = False) -> int:
+    """Index all sessions into the search backend. Returns count indexed."""
     from hive.search import build_metadata, build_search_body, get_search_backend
     from hive.store.query import QueryAPI
 
-    config = Config.load()
     backend = get_search_backend(config)
-
     if not backend.is_available():
-        console.print(f"[red]Search backend ({config.search_backend}) is not available.[/red]")
-        if config.search_backend == "witchcraft":
-            console.print("Start it with: hive-search --db-path ~/.hive/search.db --assets <path>")
-        elif config.search_backend == "sqlite-vec":
-            console.print("Install dependencies: pip install 'hive-team[search]'")
-        return
+        raise RuntimeError(f"Search backend ({config.search_backend}) is not available")
 
     api = QueryAPI(config)
     sessions = api.list_sessions(limit=100000)
     total = len(sessions)
-    console.print(f"Reindexing {total} sessions into {config.search_backend} search backend...")
+
+    if verbose:
+        console.print(f"Reindexing {total} sessions into {config.search_backend} search backend...")
 
     indexed = 0
     for i, session in enumerate(sessions, 1):
@@ -865,21 +868,26 @@ def reindex():
             backend.add_document(full["id"], full.get("started_at"), metadata, body, chunk_lengths)
             indexed += 1
         except Exception as e:
-            console.print(f"  [red]Failed[/red] {full['id'][:12]}: {e}")
+            if verbose:
+                console.print(f"  [red]Failed[/red] {full['id'][:12]}: {e}")
 
-        if i % 10 == 0:
+        if verbose and i % 10 == 0:
             console.print(f"  [{i}/{total}] processed...")
 
-    # Trigger embedding and indexing for all new documents
-    console.print("Triggering embedding and indexing...")
+    backend.trigger_index()
+    return indexed
+
+
+@cli.command()
+def reindex():
+    """Rebuild the search index from all stored sessions."""
+    config = Config.load()
     try:
-        result = backend.trigger_index()
-        console.print(
-            f"[green]Done.[/green] Indexed {indexed} sessions, "
-            f"embedded {result.get('embedded', 0)} chunks."
-        )
-    except Exception as e:
-        console.print(f"[red]Indexing failed:[/red] {e}")
+        console.print("Triggering embedding and indexing...")
+        indexed = _reindex_sessions(config, verbose=True)
+        console.print(f"[green]Done.[/green] Indexed {indexed} sessions.")
+    except RuntimeError as e:
+        console.print(f"[red]{e}[/red]")
 
 
 # ── mcp ─────────────────────────────────────────────────────────────
