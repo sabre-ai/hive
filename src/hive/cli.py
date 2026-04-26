@@ -100,8 +100,10 @@ def init(project: str):
 
         hive_bin = shutil.which("hive")
         if hive_bin:
-            console.print(f"\n  [dim]Indexing {count} sessions for search in the background.")
-            console.print("  Search results may be incomplete until indexing finishes.[/dim]")
+            console.print(
+                f"\n  [dim]Indexing {count} sessions for search in the background."
+                " Search results may be incomplete until indexing finishes.[/dim]"
+            )
             subprocess.Popen(
                 [hive_bin, "reindex"],
                 stdout=subprocess.DEVNULL,
