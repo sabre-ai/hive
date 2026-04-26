@@ -85,22 +85,29 @@ def init(project: str):
     except Exception as e:
         console.print(f"[yellow]skipped[/yellow] ({e})")
 
-    # 7. Build search index
-    if count > 0:
-        console.print("  Building search index...", end=" ")
-        try:
-            indexed = _reindex_sessions(config)
-            console.print(f"[green]✓[/green] ({indexed} sessions)")
-        except Exception as e:
-            console.print(f"[yellow]skipped[/yellow] ({e})")
-
-    # 8. Offer MCP setup
+    # 7. Offer MCP setup
     console.print()
     _offer_mcp_setup()
 
     console.print("\n[bold green]hive is ready![/bold green]")
     console.print(f"  Database: {config.db_path}")
     console.print(f"  Config:   {config_path}")
+
+    # 8. Build search index in background
+    if count > 0:
+        import shutil
+        import subprocess
+
+        hive_bin = shutil.which("hive")
+        if hive_bin:
+            console.print(f"\n  [dim]Indexing {count} sessions for search in the background.")
+            console.print("  Search results may be incomplete until indexing finishes.[/dim]")
+            subprocess.Popen(
+                [hive_bin, "reindex"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
 
 
 def _install_claude_hooks(project_path: Path):
