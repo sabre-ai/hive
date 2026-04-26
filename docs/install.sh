@@ -4,6 +4,7 @@ set -euo pipefail
 REPO="sabre-ai/hive"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hive"
 BIN_DIR="${HOME}/.local/bin"
+LOCAL_WHEEL="${1:-}"   # optional: pass a local .whl path as first argument
 
 info()  { printf "\n\033[1;34m==>\033[0m \033[1m%s\033[0m\n" "$*"; }
 ok()    { printf "    \033[1;32m✓\033[0m %s\n" "$*"; }
@@ -33,21 +34,27 @@ OS="$(uname -s)"
 
 info "Installing hive"
 
-dim "Fetching latest release..."
-RELEASE_URL="https://api.github.com/repos/$REPO/releases/latest"
-RELEASE_JSON=$(curl -sfL "$RELEASE_URL") || fail "Could not fetch release info. Check https://github.com/$REPO/releases"
+if [ -n "$LOCAL_WHEEL" ]; then
+    [ -f "$LOCAL_WHEEL" ] || fail "Wheel not found: $LOCAL_WHEEL"
+    dim "Installing from local wheel: $LOCAL_WHEEL"
+    uv tool install --force --from "$LOCAL_WHEEL" hive-team 2>/dev/null || fail "Failed to install hive"
+else
+    dim "Fetching latest release..."
+    RELEASE_URL="https://api.github.com/repos/$REPO/releases/latest"
+    RELEASE_JSON=$(curl -sfL "$RELEASE_URL") || fail "Could not fetch release info. Check https://github.com/$REPO/releases"
 
-WHEEL_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*\.whl"' | head -1 | cut -d'"' -f4)
-[ -n "$WHEEL_URL" ] || fail "No .whl found in latest release"
+    WHEEL_URL=$(echo "$RELEASE_JSON" | grep -o '"browser_download_url": *"[^"]*\.whl"' | head -1 | cut -d'"' -f4)
+    [ -n "$WHEEL_URL" ] || fail "No .whl found in latest release"
 
-dim "Downloading package..."
-WHEEL_NAME=$(basename "$WHEEL_URL")
-TMP_WHEEL=$(mktemp -d)/"$WHEEL_NAME"
-curl -sfL -o "$TMP_WHEEL" "$WHEEL_URL" || fail "Failed to download $WHEEL_NAME"
+    dim "Downloading package..."
+    WHEEL_NAME=$(basename "$WHEEL_URL")
+    TMP_WHEEL=$(mktemp -d)/"$WHEEL_NAME"
+    curl -sfL -o "$TMP_WHEEL" "$WHEEL_URL" || fail "Failed to download $WHEEL_NAME"
 
-dim "Installing..."
-uv tool install --force --from "$TMP_WHEEL" hive-team 2>/dev/null || fail "Failed to install hive"
-rm -f "$TMP_WHEEL"
+    dim "Installing..."
+    uv tool install --force --from "$TMP_WHEEL" hive-team 2>/dev/null || fail "Failed to install hive"
+    rm -f "$TMP_WHEEL"
+fi
 
 # Verify hive is on PATH
 export PATH="$BIN_DIR:$PATH"
