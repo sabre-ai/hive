@@ -53,6 +53,9 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - javascripts/install-pill.js
+
 plugins:
   - search:
       separator: '[\s\-\.\_]+'

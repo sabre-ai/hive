@@ -60,14 +60,24 @@
 }
 
 .hive-hero .md-button {
-  margin: 0 .25rem;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  height: 39px;
+  border-radius: 4px;
+  margin: 0 6px;
+}
+
+.hive-hero .hive-install + p {
+  margin-top: 22px;
 }
 
 /* Force amber on all buttons */
 .md-typeset .md-button--primary {
   background-color: var(--hive-amber);
   border-color: var(--hive-amber);
-  color: var(--hive-ink);
+  color: #0F0F10;
 }
 
 .md-typeset .md-button--primary:hover {
@@ -76,13 +86,14 @@
 }
 
 .md-typeset .md-button:not(.md-button--primary) {
-  border-color: var(--hive-amber);
+  border: 1px solid var(--hive-amber);
   color: var(--hive-amber);
+  background: transparent;
 }
 
 .md-typeset .md-button:not(.md-button--primary):hover {
   background-color: var(--hive-amber);
-  color: var(--hive-ink);
+  color: #0F0F10;
 }
 
 /* Nicer grid cards */
@@ -99,4 +110,80 @@
 /* Mermaid diagrams — darker background in light mode */
 .mermaid {
   text-align: center;
+}
+
+/* Hive install pill */
+.hive-install {
+  --hive-amber:        #E8A317;
+  --hive-amber-deep:   #C98A0E;
+  --hive-amber-glow:   rgba(232,163,23,.10);
+  --hive-ink:          #0d1018;
+  --hive-mute:         #9aa0ac;
+  --hive-mute-2:       #6d7280;
+
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  align-items: stretch;
+  background: var(--hive-ink);
+  border: 1.5px solid #E8A317;
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 5px rgba(232,163,23,.12),
+    0 16px 44px rgba(0,0,0,.5);
+  overflow: hidden;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 21px;
+  line-height: 4;
+}
+
+.hive-install__cmd {
+  flex: 1;
+  padding: 23px 28px;
+  background-color: transparent;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #e5e7ec;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.hive-install__prompt { color: var(--hive-amber); font-weight: 900; user-select: none; }
+.hive-install__bin    { color: var(--hive-mute); }
+.hive-install__url    { color: #ffffff; }
+.hive-install__pipe   { color: var(--hive-mute-2); }
+
+.hive-install__copy {
+  appearance: none;
+  background: var(--hive-amber);
+  border: none;
+  border-left: 1.5px solid var(--hive-amber-deep);
+  color: #0F0F10;
+  padding: 0 32px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: background .12s ease;
+  min-width: 110px;
+}
+.hive-install__copy:hover  { background: #f0b03a; }
+.hive-install__copy:active { background: var(--hive-amber-deep); }
+.hive-install__copy[data-copied="true"] {
+  background: #2ea043;
+  border-left-color: #1f7a31;
+  color: #fff;
+}
+
+@media (max-width: 540px) {
+  .hive-install { flex-direction: column; }
+  .hive-install__copy {
+    border-left: none;
+    border-top: 1.5px solid var(--hive-amber-deep);
+    padding: 12px;
+  }
 }

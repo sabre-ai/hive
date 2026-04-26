@@ -10,7 +10,18 @@ hide:
 
 Every Claude Code run, every Claude Desktop thread — captured to one searchable history. Solo by default, your team when you're ready.
 
-[Get started :material-arrow-right:](getting-started/index.md){ .md-button .md-button--primary }
+<div class="hive-install" role="group" aria-label="Install Hive">
+  <code class="hive-install__cmd">
+    <span class="hive-install__prompt">$</span><span class="hive-install__bin">curl</span>&nbsp;<span class="hive-install__url">https://sabre-ai.github.io/hive/install.sh</span>&nbsp;<span class="hive-install__pipe">|</span>&nbsp;<span class="hive-install__url">bash</span>
+  </code>
+  <button
+    class="hive-install__copy"
+    type="button"
+    data-hive-copy="curl https://sabre-ai.github.io/hive/install.sh | bash"
+    aria-label="Copy install command">COPY</button>
+</div>
+
+[Read the Docs :material-arrow-right:](getting-started/index.md){ .md-button .md-button--primary }
 [View on GitHub :fontawesome-brands-github:](https://github.com/sabre-ai/hive){ .md-button }
 
 </div>
