@@ -25,16 +25,9 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 ok "Prerequisites found"
 
-# ── Detect platform ────────────────────────────────────────────────
+# ── Detect platform (for macOS-specific steps) ───────────────────
 
 OS="$(uname -s)"
-ARCH="$(uname -m)"
-
-case "$OS-$ARCH" in
-    Darwin-arm64|Darwin-x86_64|Linux-x86_64|Linux-aarch64) ;;
-    *) fail "Unsupported platform: $OS-$ARCH" ;;
-esac
-ok "Platform: $OS $ARCH"
 
 # ── Fetch latest release info ──────────────────────────────────────
 
