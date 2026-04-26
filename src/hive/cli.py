@@ -193,23 +193,38 @@ def _install_git_hook(project_path: Path):
 
 
 def _offer_mcp_setup():
-    """Offer to add hive MCP server to Claude Code config."""
+    """Show MCP setup instructions only if not already configured."""
     import shutil
+    import subprocess
 
-    console.print("  MCP server configuration:")
+    hive_bin = shutil.which("hive") or "hive"
 
-    # Find the hive binary
-    hive_bin = shutil.which("hive")
-    if not hive_bin:
-        hive_bin = "hive"
+    # Check if Claude Code MCP is already configured
+    mcp_configured = False
+    if shutil.which("claude"):
+        try:
+            result = subprocess.run(
+                ["claude", "mcp", "list"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if "hive" in result.stdout:
+                mcp_configured = True
+        except Exception:
+            pass
 
-    console.print("    [bold]Claude Code:[/bold]")
-    console.print(f"    claude mcp add --transport stdio hive -- {hive_bin} mcp")
-    console.print("    Then restart Claude Code and verify with /mcp")
-    console.print()
-    console.print("    [bold]Claude Desktop (optional):[/bold]")
-    console.print("    Add to ~/Library/Application Support/Claude/claude_desktop_config.json:")
-    console.print(f'    {{"mcpServers": {{"hive": {{"command": "{hive_bin}", "args": ["mcp"]}}}}}}')
+    if not mcp_configured:
+        console.print("  MCP server configuration:")
+        console.print("    [bold]Claude Code:[/bold]")
+        console.print(f"    claude mcp add --transport stdio hive -- {hive_bin} mcp")
+        console.print("    Then restart Claude Code and verify with /mcp")
+        console.print()
+        console.print("    [bold]Claude Desktop (optional):[/bold]")
+        console.print("    Add to ~/Library/Application Support/Claude/claude_desktop_config.json:")
+        console.print(
+            f'    {{"mcpServers": {{"hive": {{"command": "{hive_bin}", "args": ["mcp"]}}}}}}'
+        )
 
 
 # ── config ─────────────────────────────────────────────────────────
