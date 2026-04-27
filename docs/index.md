@@ -8,6 +8,8 @@ hide:
 
 # Team Layer for <span style="color: var(--hive-amber)">Claude</span>.
 
+↳ so Claude can answer
+
 <div style="text-align: left; max-width: 32rem; margin: 0 auto 1rem; font-size: 1.1rem;">
 <span style="color: var(--hive-amber)">›</span> <em>"Has anyone on the team built this before?"</em><br>
 <span style="color: var(--hive-amber)">›</span> <em>"What worked when Alice hit this last week?"</em><br>
