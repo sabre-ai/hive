@@ -10,7 +10,7 @@ hide:
 
 ↳ so Claude can answer
 
-<div style="text-align: left; max-width: 32rem; margin: 0 auto 1rem; font-size: 1.1rem;">
+<div style="text-align: left; width: fit-content; margin: 0 auto 1rem; font-size: 1.1rem;">
 <span style="color: var(--hive-amber)">›</span> <em>"Has anyone on the team built this before?"</em><br>
 <span style="color: var(--hive-amber)">›</span> <em>"What worked when Alice hit this last week?"</em><br>
 <span style="color: var(--hive-amber)">›</span> <em>"Why did we choose this architecture?"</em>
