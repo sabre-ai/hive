@@ -51,12 +51,11 @@ Ready to share sessions across your team? See the [Team Server guide](https://sa
 
 ## What Claude Can Do
 
-Once hive is connected, just ask Claude:
+With the team server connected, Claude can answer questions across your entire team's history:
 
 - *"Has anyone on the team built this before?"*
 - *"What worked when Alice hit this last week?"*
 - *"Show me the conversation that led to the payment service refactor"*
-- *"How many tokens did the team use on the sabre-ai project?"*
 
 See the [MCP Tools Reference](https://sabre-ai.github.io/hive/reference/mcp-tools/) and [CLI Reference](https://sabre-ai.github.io/hive/reference/cli/) for the full list of tools and commands.
 
