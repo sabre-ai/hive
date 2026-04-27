@@ -34,30 +34,6 @@ Every Claude Code and Claude Desktop session across your team — now Claude's w
 
 </div>
 
-## What you get
-
-<div class="grid cards" markdown>
-
-- :material-record-rec:{ .lg .middle } __Automatic cross-tool capture__
-
-    ---
-
-    Claude Code and Claude Desktop conversations in one history, no setup per-session. Prompts, tool calls, and outputs are preserved automatically.
-
-- :material-magnify:{ .lg .middle } __Searchable by Claude__
-
-    ---
-
-    Ask Claude about past decisions, designs, and debugging context across your full history. Full-text and semantic search via MCP.
-
-- :material-arrow-expand-all:{ .lg .middle } __Solo to team__
-
-    ---
-
-    Works on your laptop, scales to a shared server when you're ready. SQLite or PostgreSQL, self-hosted, Apache 2.0.
-
-</div>
-
 ## Why it matters
 
 <div class="grid cards" markdown>
