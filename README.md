@@ -57,7 +57,6 @@ With the team server connected, Claude can answer questions across your entire t
 - *"What worked when Alice hit this last week?"*
 - *"Show me the conversation that led to the payment service refactor"*
 
-See the [MCP Tools Reference](https://sabre-ai.github.io/hive/reference/mcp-tools/) and [CLI Reference](https://sabre-ai.github.io/hive/reference/cli/) for the full list of tools and commands.
 
 > **Developing hive?** See [Install from Source](https://sabre-ai.github.io/hive/getting-started/install-from-source/) for the git clone + venv workflow.
 
