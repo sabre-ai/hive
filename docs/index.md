@@ -6,9 +6,15 @@ hide:
 
 <div class="hive-hero" markdown>
 
-# All your AI sessions in one searchable history.
+# Team Layer for <span style="color: var(--hive-amber)">Claude</span>.
 
-Every Claude Code run, every Claude Desktop thread — captured to one searchable history. Solo by default, your team when you're ready.
+<div style="text-align: left; max-width: 32rem; margin: 0 auto 1rem; font-size: 1.1rem;">
+<span style="color: var(--hive-amber)">›</span> <em>"Has anyone on the team built this before?"</em><br>
+<span style="color: var(--hive-amber)">›</span> <em>"What worked when Raghu hit this last week?"</em><br>
+<span style="color: var(--hive-amber)">›</span> <em>"Why did we choose this architecture?"</em>
+</div>
+
+Every Claude Code and Claude Desktop session across your team — now Claude's working context.
 
 <div class="hive-install" role="group" aria-label="Install Hive">
   <code class="hive-install__cmd">
