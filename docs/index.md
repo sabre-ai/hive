@@ -16,7 +16,7 @@ hide:
 <span style="color: var(--hive-amber)">›</span> <em>"Why did we choose this architecture?"</em>
 </div>
 
-Every Claude Code and Claude Desktop session across your team — now Claude's working context.
+Every Claude Code and Claude Desktop session across your team — now <span style="color: #fff">Claude's working context.</span>
 
 <div class="hive-install" role="group" aria-label="Install Hive">
   <code class="hive-install__cmd">
