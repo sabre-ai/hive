@@ -47,23 +47,7 @@ Ask Claude: *"What did I work on today?"*
 
 ## Team Server
 
-Share sessions across your team with a single command:
-
-```bash
-hive serve --port 3000
-```
-
-Team members push their sessions to the shared server:
-
-```bash
-hive push
-```
-
-Now anyone on the team can ask Claude about the team's full history — who built what, what approaches worked, and why decisions were made.
-
-See the [Team Server guide](https://sabre-ai.github.io/hive/getting-started/team-server/) for deployment and Docker.
-
-> **Developing hive?** See [Install from Source](https://sabre-ai.github.io/hive/getting-started/install-from-source/) for the git clone + venv workflow.
+Ready to share sessions across your team? See the [Team Server guide](https://sabre-ai.github.io/hive/getting-started/team-server/) for setup, deployment, and Docker.
 
 ## What Claude Can Do
 
@@ -75,6 +59,8 @@ Once hive is connected, just ask Claude:
 - *"How many tokens did the team use on the sabre-ai project?"*
 
 See the [MCP Tools Reference](https://sabre-ai.github.io/hive/reference/mcp-tools/) and [CLI Reference](https://sabre-ai.github.io/hive/reference/cli/) for the full list of tools and commands.
+
+> **Developing hive?** See [Install from Source](https://sabre-ai.github.io/hive/getting-started/install-from-source/) for the git clone + venv workflow.
 
 ## License
 
