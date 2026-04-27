@@ -2,15 +2,15 @@
   <img src="docs/assets/hive-mark.svg" width="56" height="56" alt="hive">
 </p>
 <h1 align="center">hive</h1>
-<p align="center">Every conversation with AI is institutional knowledge. Hive makes sure none of it is lost.</p>
+<p align="center">The team layer for Claude. Every AI session across your team — captured, searchable, and available as Claude's working context.</p>
 
 > **Full documentation:** [sabre-ai.github.io/hive](https://sabre-ai.github.io/hive/)
 
-Design decisions, debugging sessions, architecture discussions, code reviews — your AI conversations hold context that doesn't make it into commits or docs. Hive captures it all automatically and makes it searchable by Claude via MCP.
+Design decisions, debugging sessions, architecture discussions, code reviews — your team's AI conversations hold context that doesn't make it into commits or docs. Hive captures it all and makes it searchable by Claude via MCP.
 
 **Automatic cross-tool capture:** Claude Code and Claude Desktop conversations in one history, no setup per-session.
 
-**Searchable by Claude:** Ask about past decisions, designs, and debugging context across your full history.
+**Searchable by Claude:** Ask about past decisions, designs, and debugging context across your team's full history.
 
 **Solo to team:** Works on your laptop, scales to a shared server when you're ready.
 
@@ -27,32 +27,38 @@ cd your-project
 hive init
 ```
 
+### Claude Code — automatic
+
+Every Claude Code session is captured automatically via hooks. No manual steps — just use Claude Code as normal and hive records every conversation in the background.
+
+### Claude Desktop — on demand
+
+Claude Desktop has no hook system, so capture is on demand. When a conversation is worth keeping, tell Claude:
+
+```
+Save this conversation to hive
+```
+
+Claude calls the `capture_session` MCP tool and the conversation is stored. Save once at the end of a conversation — that captures the full thread. Claude Code sessions are always saved automatically.
+
+---
+
 Ask Claude: *"What did I work on today?"*
 
-See the [Getting Started guide](https://sabre-ai.github.io/hive/getting-started/) for team server deployment and Docker.
+## Team Server
 
-> **Developing hive?** See [Install from Source](https://sabre-ai.github.io/hive/getting-started/install-from-source/) for the git clone + venv workflow.
+Ready to share sessions across your team? See the [Team Server guide](https://sabre-ai.github.io/hive/getting-started/team-server/) for setup, deployment, and Docker.
 
 ## What Claude Can Do
 
-Claude is the interface. These MCP tools are available when hive is connected:
+With the team server connected, Claude can answer questions across your entire team's history:
 
-| Tool | Description | Required Args |
-|------|-------------|---------------|
-| `search` | Full-text and semantic search across sessions | `query` |
-| `get_session` | Retrieve complete session with messages | `session_id` |
-| `lineage` | Sessions and commits connected to a file | `file_path` |
-| `recent` | Latest sessions, filterable by project/author | — |
-| `stats` | Quality metrics, token usage, patterns | — |
-| `delete` | Remove a session from the server | `session_id` |
-
-### Example Prompts
-
-- *"What sessions touched the auth middleware this week?"*
+- *"Has anyone on the team built this before?"*
+- *"What worked when Alice hit this last week?"*
 - *"Show me the conversation that led to the payment service refactor"*
-- *"How many tokens did the team use on the sabre-ai project?"*
-- *"Which sessions had the most corrections?"*
-- *"Delete my session from yesterday about the client review"*
+
+
+> **Developing hive?** See [Install from Source](https://sabre-ai.github.io/hive/getting-started/install-from-source/) for the git clone + venv workflow.
 
 ## License
 

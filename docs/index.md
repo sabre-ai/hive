@@ -6,9 +6,17 @@ hide:
 
 <div class="hive-hero" markdown>
 
-# All your AI sessions in one searchable history.
+# Team Layer for <span style="color: var(--hive-amber)">Claude</span>.
 
-Every Claude Code run, every Claude Desktop thread — captured to one searchable history. Solo by default, your team when you're ready.
+↳ so Claude can answer
+
+<div style="text-align: left; width: fit-content; margin: 0 auto 1rem; font-size: 1.1rem;">
+<span style="color: var(--hive-amber)">›</span> <em>"Has anyone on the team built this before?"</em><br>
+<span style="color: var(--hive-amber)">›</span> <em>"What worked when Alice hit this last week?"</em><br>
+<span style="color: var(--hive-amber)">›</span> <em>"Why did we choose this architecture?"</em>
+</div>
+
+Every Claude Code and Claude Desktop session across your team — now <span style="color: #fff">Claude's working context.</span>
 
 <div class="hive-install" role="group" aria-label="Install Hive">
   <code class="hive-install__cmd">
@@ -26,27 +34,27 @@ Every Claude Code run, every Claude Desktop thread — captured to one searchabl
 
 </div>
 
-## What Hive does
+## Why it matters
 
 <div class="grid cards" markdown>
 
-- :material-record-rec:{ .lg .middle } __Automatic cross-tool capture__
+- :material-magnify:{ .lg .middle } __Skip the duplicate work__
 
     ---
 
-    Claude Code and Claude Desktop conversations in one history, no setup per-session. Prompts, tool calls, and outputs are preserved automatically.
+    Search across teammate sessions before starting yours.
 
-- :material-magnify:{ .lg .middle } __Searchable by Claude__
-
-    ---
-
-    Ask Claude about past decisions, designs, and debugging context across your full history. Full-text and semantic search via MCP.
-
-- :material-arrow-expand-all:{ .lg .middle } __Solo to team__
+- :material-account-group:{ .lg .middle } __Onboard new teammates faster__
 
     ---
 
-    Works on your laptop, scales to a shared server when you're ready. SQLite or PostgreSQL, self-hosted, Apache 2.0.
+    They get the team's prompt history on day one.
+
+- :material-file-document-check:{ .lg .middle } __Stop re-deriving decisions__
+
+    ---
+
+    Every "why did we..." has a transcript attached.
 
 </div>
 
