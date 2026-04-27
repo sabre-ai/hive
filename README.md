@@ -54,7 +54,7 @@ Ready to share sessions across your team? See the [Team Server guide](https://sa
 Once hive is connected, just ask Claude:
 
 - *"Has anyone on the team built this before?"*
-- *"What worked when Raghu hit this last week?"*
+- *"What worked when Alice hit this last week?"*
 - *"Show me the conversation that led to the payment service refactor"*
 - *"How many tokens did the team use on the sabre-ai project?"*
 
