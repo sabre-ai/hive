@@ -34,27 +34,27 @@ Every Claude Code and Claude Desktop session across your team — now Claude's w
 
 </div>
 
-## What Hive does
+## What you get
 
 <div class="grid cards" markdown>
 
-- :material-record-rec:{ .lg .middle } __Automatic cross-tool capture__
+- :material-magnify:{ .lg .middle } __Skip the duplicate work__
 
     ---
 
-    Claude Code and Claude Desktop conversations in one history, no setup per-session. Prompts, tool calls, and outputs are preserved automatically.
+    Search across teammate sessions before starting yours.
 
-- :material-magnify:{ .lg .middle } __Searchable by Claude__
-
-    ---
-
-    Ask Claude about past decisions, designs, and debugging context across your full history. Full-text and semantic search via MCP.
-
-- :material-arrow-expand-all:{ .lg .middle } __Solo to team__
+- :material-account-group:{ .lg .middle } __Onboard new teammates faster__
 
     ---
 
-    Works on your laptop, scales to a shared server when you're ready. SQLite or PostgreSQL, self-hosted, Apache 2.0.
+    They get the team's prompt history on day one.
+
+- :material-file-document-check:{ .lg .middle } __Stop re-deriving decisions__
+
+    ---
+
+    Every "why did we..." has a transcript attached.
 
 </div>
 
