@@ -1,189 +1,843 @@
-:root {
-  /* Brand tokens */
-  --hive-ink:   #0F0F10;
-  --hive-amber: #E8A317;
-  --hive-bone:  #F5F1E8;
+/* ============================================================
+   Hive Landing Page — Design System
+   ============================================================ */
 
-  /* Typography tokens */
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-ui:   'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+:root {
+  /* Color — dark theme (default) */
+  --ink:         #15120D;
+  --ink-deep:    #0F0D0A;
+  --surface:     #1C1812;
+  --line:        rgba(255, 240, 210, 0.06);
+  --accent:      #E8A317;
+  --accent-deep: #C98A0E;
+  --accent-soft: rgba(232, 163, 23, 0.14);
+  --text:        #F4EFE6;
+  --mute:        #A89F8E;
+  --mute-deep:   #6E665A;
+
+  /* Typography */
+  --font-sans:  'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:  'Geist Mono', ui-monospace, 'JetBrains Mono', monospace;
+
+  /* Radius / Shadow */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --shadow-pill: 0 1px 0 rgba(255,255,255,0.04) inset,
+                 0 18px 50px -10px rgba(0,0,0,0.6),
+                 0 4px 12px rgba(0,0,0,0.3);
+
+  /* Material font overrides */
+  --md-text-font: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --md-code-font: 'Geist Mono', ui-monospace, 'JetBrains Mono', monospace;
 
   /* Material overrides */
-  --md-primary-fg-color:        var(--hive-ink);
-  --md-primary-fg-color--light: rgba(15,15,16,0.7);
-  --md-primary-fg-color--dark:  var(--hive-ink);
-  --md-accent-fg-color:         var(--hive-amber);
+  --md-primary-fg-color:        var(--surface);
+  --md-primary-fg-color--light: rgba(28,24,18,0.7);
+  --md-primary-fg-color--dark:  var(--ink);
+  --md-accent-fg-color:         var(--accent);
+  --md-default-bg-color:        var(--ink);
+  --md-typeset-a-color:         var(--accent);
+
+  /* Hive legacy aliases */
+  --hive-ink:   var(--ink);
+  --hive-amber: var(--accent);
+  --hive-bone:  var(--text);
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color:        rgba(15,15,16,0.85);
-  --md-primary-fg-color--light: rgba(15,15,16,0.5);
-  --md-primary-fg-color--dark:  var(--hive-ink);
-  --md-accent-fg-color:         var(--hive-amber);
+  --md-default-bg-color:        var(--ink);
+  --md-primary-fg-color:        var(--surface);
+  --md-primary-fg-color--light: rgba(28,24,18,0.5);
+  --md-primary-fg-color--dark:  var(--ink);
+  --md-accent-fg-color:         var(--accent);
 }
 
-/* Header logo + wordmark */
+
+/* ============================================================
+   §3  Header / Nav
+   ============================================================ */
+
+.md-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
 .md-header__button.md-logo img,
 .md-header__button.md-logo svg {
-  width: 64px;
-  height: 64px;
+  width: 40px;
+  height: 40px;
 }
 
 .md-header__topic:first-child .md-ellipsis {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 42px;
-  letter-spacing: -0.04em;
-}
-
-/* Hero */
-.hive-hero {
-  padding: 4rem 0 3rem;
-  text-align: center;
-  border-radius: 12px;
-  margin-bottom: 2rem;
-}
-
-.hive-hero h1 {
-  font-size: 3.4rem;
+  font-family: var(--font-sans);
   font-weight: 700;
-  line-height: 1.1;
-  max-width: 22ch;
-  margin: 0 auto 1rem;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  color: var(--text);
 }
 
-.hive-hero p {
-  max-width: 60ch;
-  margin: 0 auto 2rem;
-  font-size: 1.1rem;
-  color: var(--md-default-fg-color--light);
+.md-tabs {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
-.hive-hero .md-button {
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+.md-tabs__link {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  color: var(--mute);
+  opacity: 1;
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: var(--text);
+}
+
+.md-search__input {
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+
+/* ============================================================
+   §4  Hero
+   ============================================================ */
+
+.hive-hero {
+  padding: 32px 16px 40px;
+  text-align: center;
+  margin-bottom: 0;
+}
+
+.md-typeset .hive-hero__headline,
+.hive-hero__headline {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 56px;
+  line-height: 1.0;
+  letter-spacing: -0.045em;
+  color: var(--text);
+  text-wrap: balance;
+  text-align: center;
+  margin: 0 auto 1.5rem;
+}
+
+.md-typeset .hive-hero__headline .claude-word,
+.hive-hero__headline .claude-word {
+  color: var(--accent);
+  font-style: italic;
+  font-family: 'Instrument Serif', var(--font-sans);
+  font-size: 1.1em;
+}
+
+.hive-hero__caption {
+  font-family: var(--font-mono);
   font-size: 13px;
+  color: var(--mute-deep);
+  text-align: center;
+  margin: 0 0 28px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hive-hero__lead {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--mute);
+  max-width: 60ch;
+  margin: 0 auto 28px;
+  text-align: center;
+}
+
+.hive-hero__lead strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hive-hero__cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.hive-hero__cta .btn {
+  width: 100%;
+  max-width: 320px;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .hive-hero {
+    padding: 48px 24px 48px;
+  }
+  .md-typeset .hive-hero__headline,
+  .hive-hero__headline {
+    font-size: 96px;
+  }
+  .hive-hero__cta {
+    flex-direction: row;
+    justify-content: center;
+  }
+  .hive-hero__cta .btn {
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hive-hero {
+    padding: 56px 36px 56px;
+  }
+  .md-typeset .hive-hero__headline,
+  .hive-hero__headline {
+    font-size: 84px;
+  }
+}
+
+
+/* ============================================================
+   §5  Install Pill
+   ============================================================ */
+
+.install-pill {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  min-height: 64px;
+  display: flex;
+  align-items: stretch;
+  background: color-mix(in oklab, var(--ink-deep) 92%, var(--accent) 8%);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pill);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+@supports not (background: color-mix(in oklab, #000 50%, #fff 50%)) {
+  .install-pill {
+    background: #15110B;
+  }
+}
+
+.install-pill__cmd,
+.md-typeset .install-pill__cmd {
+  flex: 1;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  min-height: 64px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.install-pill__prompt {
+  color: var(--accent);
+  font-weight: 700;
+  opacity: 0.85;
+  user-select: none;
+}
+
+.install-pill__mute {
+  color: var(--mute);
+}
+
+.install-pill__text {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.install-pill__mute-deep {
+  color: var(--mute-deep);
+}
+
+.install-pill__copy {
+  appearance: none;
+  padding: 0 22px;
+  min-width: 88px;
+  height: auto;
+  background: var(--accent);
+  color: #0F0D0A;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s ease;
+}
+
+.install-pill__copy:hover {
+  background: #f0b03a;
+}
+
+.install-pill__copy:active {
+  background: var(--accent-deep);
+}
+
+.install-pill__copy:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.install-pill__copy[data-copied="true"] {
+  background: #2ea043;
+  color: #fff;
+}
+
+/* Mobile: stacked layout */
+@media (max-width: 559px) {
+  .install-pill {
+    flex-direction: column;
+  }
+  .install-pill__cmd {
+    width: 100%;
+    min-height: 64px;
+  }
+  .install-pill__copy {
+    width: 100%;
+    min-height: 56px;
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
+  }
+}
+
+
+/* ============================================================
+   §6  Questions Block
+   ============================================================ */
+
+.questions-block {
+  max-width: 600px;
+  margin: 0 auto 32px;
+  background: linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+  border: 1px solid var(--line);
+  border-top: 1px solid var(--accent);
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+
+.questions-block__row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 12px;
+  padding: 14px 20px;
+  text-align: left;
+}
+
+.questions-block__row + .questions-block__row {
+  border-top: 1px solid var(--line);
+}
+
+.questions-block__num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--mute-deep);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+
+.questions-block__arrow {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.questions-block__text {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.4;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .questions-block__row {
+    gap: 18px;
+    padding: 14px 24px;
+  }
+  .questions-block__text {
+    font-size: 20px;
+  }
+}
+
+
+/* ============================================================
+   §7  "Why it matters" Section
+   ============================================================ */
+
+.section-why {
+  padding: 40px 16px 24px;
+}
+
+.md-typeset .section-why__title,
+.section-why__title {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin: 0 0 28px;
+}
+
+.why-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.why-card {
+  padding: 20px 22px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.why-card__title {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  margin: 0 0 8px;
+}
+
+.why-card__body {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--mute);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+@media (min-width: 768px) {
+  .section-why {
+    padding: 56px 24px 32px;
+  }
+  .why-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-why {
+    padding: 56px 36px 32px;
+  }
+  .why-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+
+/* ============================================================
+   §8  "How it works" Section
+   ============================================================ */
+
+.section-how {
+  padding: 32px 16px 48px;
+}
+
+.md-typeset .section-how__title,
+.section-how__title {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin: 0 0 28px;
+}
+
+.section-how__diagram {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+.section-how__caption {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--mute);
+  margin-top: 16px;
+  text-align: center;
+}
+
+.section-how__caption a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.section-how__caption a:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 768px) {
+  .section-how {
+    padding: 40px 24px 72px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-how {
+    padding: 40px 36px 72px;
+  }
+}
+
+
+/* ============================================================
+   §9  "Get involved" Section
+   ============================================================ */
+
+.section-involved {
+  padding: 8px 16px 40px;
+}
+
+.md-typeset .section-involved__title,
+.section-involved__title {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  margin: 0 0 20px;
+}
+
+.section-involved ul {
+  list-style: disc;
+  padding-left: 20px;
+  line-height: 1.9;
+  font-family: var(--font-sans);
+  font-size: 18px;
+  margin: 0 0 16px;
+}
+
+.section-involved ul a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.section-involved ul a:hover {
+  text-decoration: underline;
+}
+
+.section-involved ul span {
+  color: var(--mute);
+}
+
+.section-involved__license {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  color: var(--mute);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.section-involved__license strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.section-involved__dates {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--mute-deep);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-involved__dates span::before {
+  content: "⏱ ";
+}
+
+@media (min-width: 768px) {
+  .section-involved {
+    padding: 8px 24px 56px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-involved {
+    padding: 8px 36px 56px;
+  }
+}
+
+
+/* ============================================================
+   §10  "Next" Link
+   ============================================================ */
+
+.section-next {
+  border-top: 1px solid var(--line);
+  padding: 24px 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.section-next__link {
+  text-decoration: none;
+  text-align: right;
+  display: block;
+}
+
+.section-next__eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--mute-deep);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.section-next__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
   font-weight: 500;
-  padding: 8px 16px;
-  height: 39px;
-  border-radius: 4px;
-  margin: 0 6px;
+  color: var(--text);
+  display: inline;
 }
 
-.hive-hero .hive-install + p {
-  margin-top: 22px;
+.section-next__arrow {
+  font-size: 20px;
+  color: var(--text);
+  margin-left: 4px;
 }
 
-/* Force amber on all buttons */
+.section-next__link:hover .section-next__title {
+  color: var(--accent);
+}
+
+@media (min-width: 768px) {
+  .section-next {
+    padding: 28px 36px;
+  }
+}
+
+
+/* ============================================================
+   §11  Footer overrides
+   ============================================================ */
+
+.md-footer {
+  background: var(--ink-deep);
+  border-top: 1px solid var(--line);
+}
+
+.md-footer-meta {
+  background: var(--ink-deep);
+}
+
+.md-copyright {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.md-social__link {
+  color: var(--mute);
+}
+
+.md-social__link:hover {
+  color: var(--text);
+}
+
+
+/* ============================================================
+   §12  Buttons
+   ============================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid transparent;
+  line-height: 1;
+}
+
+.btn-primary,
+.md-typeset .btn-primary,
+.md-typeset a.btn-primary {
+  background: var(--accent);
+  color: #0F0D0A;
+}
+
+.btn-primary:hover,
+.md-typeset .btn-primary:hover,
+.md-typeset a.btn-primary:hover {
+  background: var(--accent-deep);
+  color: #0F0D0A;
+}
+
+.btn-outline,
+.md-typeset .btn-outline,
+.md-typeset a.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.btn-outline:hover,
+.md-typeset .btn-outline:hover,
+.md-typeset a.btn-outline:hover {
+  border-color: var(--mute);
+  color: var(--text);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Material button overrides (for non-hero contexts) */
 .md-typeset .md-button--primary {
-  background-color: var(--hive-amber);
-  border-color: var(--hive-amber);
-  color: #0F0F10;
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #0F0D0A;
 }
 
 .md-typeset .md-button--primary:hover {
-  background-color: #c88a00;
-  border-color: #c88a00;
+  background-color: var(--accent-deep);
+  border-color: var(--accent-deep);
 }
 
 .md-typeset .md-button:not(.md-button--primary) {
-  border: 1px solid var(--hive-amber);
-  color: var(--hive-amber);
+  border: 1px solid var(--line);
+  color: var(--text);
   background: transparent;
 }
 
 .md-typeset .md-button:not(.md-button--primary):hover {
-  background-color: var(--hive-amber);
-  color: #0F0F10;
+  border-color: var(--mute);
 }
 
-/* Nicer grid cards */
-.md-typeset .grid.cards > ul > li {
-  border-radius: 10px;
-  transition: transform .15s ease, border-color .15s ease;
-}
 
-.md-typeset .grid.cards > ul > li:hover {
-  transform: translateY(-2px);
-  border-color: var(--md-accent-fg-color);
-}
+/* ============================================================
+   §  Content wrapper (max-width)
+   ============================================================ */
 
-/* Mermaid diagrams — darker background in light mode */
-.mermaid {
-  text-align: center;
-}
-
-/* Hive install pill */
-.hive-install {
-  --hive-amber:        #E8A317;
-  --hive-amber-deep:   #C98A0E;
-  --hive-amber-glow:   rgba(232,163,23,.10);
-  --hive-ink:          #0d1018;
-  --hive-mute:         #9aa0ac;
-  --hive-mute-2:       #6d7280;
-
-  width: 100%;
-  max-width: 760px;
+/* Break out of Material's narrow content wrapper on homepage */
+.hive-home {
+  max-width: 1080px;
   margin: 0 auto;
-  display: flex;
-  align-items: stretch;
-  background: var(--hive-ink);
-  border: 1.5px solid #E8A317;
-  border-radius: 8px;
-  box-shadow:
-    0 0 0 5px rgba(232,163,23,.12),
-    0 16px 44px rgba(0,0,0,.5);
-  overflow: hidden;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 21px;
-  line-height: 4;
 }
 
-.hive-install__cmd {
-  flex: 1;
-  padding: 23px 28px;
-  background-color: transparent;
-  border-radius: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #e5e7ec;
-  overflow-x: auto;
-  white-space: nowrap;
+/* Widen Material's content area for the homepage */
+.md-content .hive-home {
+  max-width: none;
 }
 
-.hive-install__prompt { color: var(--hive-amber); font-weight: 900; user-select: none; }
-.hive-install__bin    { color: var(--hive-mute); }
-.hive-install__url    { color: #ffffff; }
-.hive-install__pipe   { color: var(--hive-mute-2); }
-
-.hive-install__copy {
-  appearance: none;
-  background: var(--hive-amber);
-  border: none;
-  border-left: 1.5px solid var(--hive-amber-deep);
-  color: #0F0F10;
-  padding: 0 32px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  cursor: pointer;
-  transition: background .12s ease;
-  min-width: 110px;
-}
-.hive-install__copy:hover  { background: #f0b03a; }
-.hive-install__copy:active { background: var(--hive-amber-deep); }
-.hive-install__copy[data-copied="true"] {
-  background: #2ea043;
-  border-left-color: #1f7a31;
-  color: #fff;
+/* Override Material's main content container width on homepage */
+body:has(.hive-home) .md-main__inner {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-@media (max-width: 540px) {
-  .hive-install { flex-direction: column; }
-  .hive-install__copy {
-    border-left: none;
-    border-top: 1.5px solid var(--hive-amber-deep);
-    padding: 12px;
+body:has(.hive-home) .md-content__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+/* Hide default content title on homepage */
+.hive-home .md-typeset h1:first-child {
+  display: none;
+}
+
+/* Hide git-revision dates and Material's "Next" nav on homepage */
+body:has(.hive-home) .md-source-file,
+body:has(.hive-home) .md-footer__inner {
+  display: none;
+}
+
+
+/* ============================================================
+   §  Diagram SVG styles (inline)
+   ============================================================ */
+
+.diagram-box {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.diagram-box--filled {
+  fill: rgba(255, 240, 210, 0.06);
+}
+
+.diagram-label {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  fill: var(--mute);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.diagram-label-mono {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  fill: var(--mute);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.diagram-arrow {
+  stroke: var(--mute);
+  stroke-width: 1;
+  fill: none;
+  marker-end: url(#arrowhead);
+}
+
+.diagram-cylinder-top {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.diagram-cylinder-body {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+
+/* ============================================================
+   §  Accessibility: reduced motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
