@@ -23,7 +23,18 @@ from hive.config import Config, load_project_config
 
 logger = logging.getLogger(__name__)
 
-server = Server("hive")
+server = Server(
+    "hive",
+    instructions=(
+        "Hive is the team's session memory. It records AI coding sessions "
+        "(conversations, files touched, commits produced) for this project and "
+        "the whole team. When the user asks about past work, prior conversations, "
+        "what teammates have done, file history, token usage, or session quality, "
+        "use hive tools to answer. You do NOT need the user to say 'check hive' — "
+        "any question about coding history, prior approaches, or team activity "
+        "should route here."
+    ),
+)
 
 
 # ── Backend protocol ──────────────────────────────────────────────
@@ -322,9 +333,10 @@ TOOLS: list[Tool] = [
     Tool(
         name="search",
         description=(
-            "Full-text search across captured AI coding sessions. "
-            "Scoped to the current project by default. "
-            "Returns matching sessions with highlighted snippets."
+            "Search the team's AI coding session history. Call this for questions "
+            "about whether something has been done before, what approaches were tried, "
+            "what teammates discussed, or to find a past conversation by topic. "
+            "Scoped to the current project by default."
         ),
         inputSchema={
             "type": "object",
@@ -347,8 +359,10 @@ TOOLS: list[Tool] = [
     Tool(
         name="get_session",
         description=(
-            "Retrieve the complete data for a single session, including all "
-            "messages, enrichments, and annotations."
+            "Retrieve the full conversation from a specific session. Call this after "
+            "search or recent returns a session ID and the user wants to see the actual "
+            "discussion, code, or decisions from that session. Use detail='messages' "
+            "to include the conversation transcript."
         ),
         inputSchema={
             "type": "object",
@@ -377,10 +391,9 @@ TOOLS: list[Tool] = [
     Tool(
         name="lineage",
         description=(
-            "Return the lineage graph for a file, session, or commit. "
-            "For files: every session that read or modified it. "
-            "For sessions: linked sessions, files, and commits. "
-            "For commits: sessions that produced the commit."
+            "Trace the history of a file, session, or commit. Call this for questions "
+            "about what sessions touched a file, what work led to a commit, or how "
+            "code changed over time. Accepts a file_path, session_id, or commit_sha."
         ),
         inputSchema={
             "type": "object",
@@ -405,7 +418,10 @@ TOOLS: list[Tool] = [
     Tool(
         name="recent",
         description=(
-            "List the most recent captured sessions. Scoped to the current project by default."
+            "List recent AI coding sessions. Call this for questions about recent work, "
+            "what was done today or this week, or to compare recent sessions. Supports "
+            "sorting by tokens, corrections, or message count, and filtering by author "
+            "or model."
         ),
         inputSchema={
             "type": "object",
@@ -442,8 +458,9 @@ TOOLS: list[Tool] = [
     Tool(
         name="stats",
         description=(
-            "Return aggregated statistics: total sessions, message counts, "
-            "quality metrics, and date ranges. Scoped to the current project by default."
+            "Get usage and quality statistics. Call this for questions about usage, "
+            "cost, productivity, or quality trends. Supports grouping by project, "
+            "model, author, or week."
         ),
         inputSchema={
             "type": "object",
@@ -466,7 +483,10 @@ TOOLS: list[Tool] = [
     ),
     Tool(
         name="delete",
-        description="Delete a session and all its related data from the server.",
+        description=(
+            "Delete a session and all its related data. Call this only when the user "
+            "explicitly asks to remove or delete a specific session."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
@@ -480,7 +500,7 @@ TOOLS: list[Tool] = [
         description=(
             "Save the current conversation to hive. Call this when the user asks "
             "to save, capture, or preserve a design discussion, brainstorm, or any "
-            "conversation worth keeping for future reference."
+            "conversation worth keeping for future reference by the team."
         ),
         inputSchema={
             "type": "object",
@@ -540,8 +560,9 @@ TOOLS: list[Tool] = [
     Tool(
         name="current_session",
         description=(
-            "Return the most recent hive session for the current project. "
-            "Useful for getting the current session ID when creating links."
+            "Get the current (most recent) hive session ID for this project. "
+            "Call this when you need a session ID for link_sessions or when the "
+            "user asks about the current session."
         ),
         inputSchema={
             "type": "object",
