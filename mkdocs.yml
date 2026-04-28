@@ -13,9 +13,7 @@ theme:
   language: en
   logo: assets/logo.svg
   favicon: assets/favicon.png
-  font:
-    text: Inter
-    code: JetBrains Mono
+  font: false
   features:
     - navigation.tabs
     - navigation.tabs.sticky
@@ -113,8 +111,6 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/sabre-ai/hive
-    - icon: fontawesome/brands/python
-      link: https://pypi.org/project/hive-team/
   version:
     provider: mike
     default: latest
@@ -131,9 +127,9 @@ nav:
     - FAQ: getting-started/faq.md
   - Tutorials:
     - Overview: tutorials/index.md
+    - Asking Claude: tutorials/asking-claude.md
     - Daily Workflow: tutorials/workflow.md
     - Searching Your History: tutorials/searching.md
-    - Asking Claude: tutorials/asking-claude.md
     - Sharing Controls: tutorials/sharing-controls.md
     - Secret Scrubbing: tutorials/secret-scrubbing.md
     - File & Commit Lineage: tutorials/file-lineage.md
