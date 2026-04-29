@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir \
 
 # Copy source and install the package (fast — deps already cached)
 COPY src/ src/
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.1.0
 RUN pip install --no-cache-dir --no-deps .
 
 EXPOSE 3000
