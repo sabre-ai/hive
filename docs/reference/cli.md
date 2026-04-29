@@ -77,19 +77,26 @@ echo '{"session_id": "abc123", ...}' | hive capture stop
 
 ### `hive config sharing <on|off>`
 
-Enable or disable automatic push of sessions to the team server.
+Enable or disable automatic push of sessions to the team server. When enabling, `--team-server` and `--project-name` configure the connection in a single command.
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--project PATH` | `.` | Target project directory |
+| `--team-server URL` | (from global config) | Team server URL (required on first enable) |
+| `--project-name NAME` | (from project config) | Canonical project name (required on first enable) |
 
 ```bash
-# Enable auto-push for current project
-hive config sharing on
+# Enable sharing with full configuration (one command)
+hive config sharing on --team-server http://team-server:3000 --project-name acme/my-app
+
+# Teammate who cloned the repo (project name already in .hive/config.toml)
+hive config sharing on --team-server http://team-server:3000
 
 # Disable for a specific project
 hive config sharing off --project ~/code/my-app
 ```
+
+If `--project-name` is omitted and you're in a git repo, hive suggests the normalized remote URL as a default.
 
 ---
 
