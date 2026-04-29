@@ -38,6 +38,7 @@ class SessionPushPayload(BaseModel):
     id: str
     source: str
     project_path: str | None = None
+    project_id: str | None = None
     author: str | None = None
     started_at: str | None = None
     ended_at: str | None = None

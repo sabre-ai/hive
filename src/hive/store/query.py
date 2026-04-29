@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from hive.config import Config
 from hive.store.db import get_engine, get_session_factory
-from hive.store.models import Annotation, Edge, Enrichment, Message
+from hive.store.models import Annotation, Edge, Enrichment, Message, Project
 from hive.store.models import Session as SessionModel
 
 
@@ -68,7 +68,13 @@ class QueryAPI:
             if source:
                 q = q.where(S.source == source)
             if project:
-                q = q.where(S.project_path.like(f"%{project}%"))
+                q = q.where(
+                    sa.or_(
+                        S.project_id == project,
+                        S.project_id.like(f"%{project}%"),
+                        S.project_path.like(f"%{project}%"),
+                    )
+                )
             if author:
                 q = q.where(S.author == author)
             if since:
@@ -131,6 +137,7 @@ class QueryAPI:
                     "id": s.id,
                     "source": s.source,
                     "project_path": s.project_path,
+                    "project_id": s.project_id,
                     "author": s.author,
                     "started_at": s.started_at,
                     "ended_at": s.ended_at,
@@ -237,7 +244,12 @@ class QueryAPI:
             params: dict[str, Any] = {"query": query, "limit": limit}
 
             if project:
-                clauses.append("AND s.project_path LIKE :project")
+                clauses.append(
+                    "AND (s.project_id = :project_exact"
+                    " OR s.project_id LIKE :project"
+                    " OR s.project_path LIKE :project)"
+                )
+                params["project_exact"] = project
                 params["project"] = f"%{project}%"
             if author:
                 clauses.append("AND s.author = :author")
@@ -503,13 +515,19 @@ class QueryAPI:
         with self._session() as session:
             filters = []
             if project:
-                filters.append(S.project_path.like(f"%{project}%"))
+                filters.append(
+                    sa.or_(
+                        S.project_id == project,
+                        S.project_id.like(f"%{project}%"),
+                        S.project_path.like(f"%{project}%"),
+                    )
+                )
             if since:
                 filters.append(S.started_at >= since)
 
             if group_by in ("project", "model", "author", "week"):
                 if group_by == "project":
-                    group_col = S.project_path
+                    group_col = func.coalesce(S.project_id, S.project_path)
                     group_label = "project"
                 elif group_by == "author":
                     group_col = S.author
@@ -690,22 +708,28 @@ class QueryAPI:
     def list_projects(self) -> list[dict[str, Any]]:
         """Return distinct projects with session counts and last activity."""
         S = SessionModel
+        project_key = func.coalesce(S.project_id, S.project_path)
         with self._session() as session:
             rows = session.execute(
                 select(
-                    S.project_path,
+                    project_key.label("project"),
                     func.count().label("session_count"),
                     func.sum(S.message_count).label("total_messages"),
                     func.max(S.started_at).label("last_active"),
                     func.min(S.started_at).label("first_active"),
                 )
-                .where(S.project_path.isnot(None), S.project_path != "")
-                .group_by(S.project_path)
+                .where(
+                    sa.or_(
+                        S.project_id.isnot(None),
+                        sa.and_(S.project_path.isnot(None), S.project_path != ""),
+                    )
+                )
+                .group_by(project_key)
                 .order_by(func.max(S.started_at).desc())
             ).all()
             return [
                 {
-                    "project_path": r.project_path,
+                    "project": r.project,
                     "session_count": r.session_count,
                     "total_messages": r.total_messages,
                     "last_active": str(r.last_active) if r.last_active else None,
@@ -753,6 +777,14 @@ class QueryAPI:
 
     # ── Write helpers (used by capture/enrich) ──────────────────────
 
+    def ensure_project(self, project_id: str, author: str | None = None) -> None:
+        """Create a project row if it doesn't already exist."""
+        with self._session() as session:
+            existing = session.get(Project, project_id)
+            if not existing:
+                session.add(Project(id=project_id, created_by=author))
+                session.commit()
+
     def upsert_session(self, data: dict[str, Any]) -> None:
         with self._session() as session:
             existing = session.get(SessionModel, data["id"])
@@ -760,11 +792,14 @@ class QueryAPI:
                 existing.ended_at = data.get("ended_at", existing.ended_at)
                 existing.message_count = data.get("message_count", existing.message_count)
                 existing.summary = data.get("summary") or existing.summary
+                if data.get("project_id") and not existing.project_id:
+                    existing.project_id = data["project_id"]
             else:
                 s = SessionModel(
                     id=data["id"],
                     source=data["source"],
                     project_path=data.get("project_path"),
+                    project_id=data.get("project_id"),
                     author=data.get("author"),
                     started_at=data.get("started_at"),
                     ended_at=data.get("ended_at"),
@@ -979,12 +1014,20 @@ class QueryAPI:
                 )
             session.execute(delete(SessionModel).where(SessionModel.id == session_id))
 
+            # Auto-register project if present
+            project_id = payload.get("project_id")
+            if project_id:
+                existing_proj = session.get(Project, project_id)
+                if not existing_proj:
+                    session.add(Project(id=project_id, created_by=payload.get("author")))
+
             # Insert session
             session.add(
                 SessionModel(
                     id=session_id,
                     source=payload.get("source", ""),
                     project_path=payload.get("project_path"),
+                    project_id=project_id,
                     author=payload.get("author"),
                     started_at=payload.get("started_at"),
                     ended_at=payload.get("ended_at"),
@@ -1092,6 +1135,7 @@ def _session_to_dict(s: SessionModel) -> dict[str, Any]:
         "id": s.id,
         "source": s.source,
         "project_path": s.project_path,
+        "project_id": s.project_id,
         "author": s.author,
         "started_at": s.started_at,
         "ended_at": s.ended_at,

@@ -56,3 +56,21 @@ class TestProjectConfig:
 
         save_project_config(project_dir, ProjectConfig(sharing=True))
         assert (project_dir / ".hive" / "config.toml").exists()
+
+    def test_project_config_saves_and_loads_project_name(self, tmp_path: Path):
+        project_dir = tmp_path / "named_project"
+        project_dir.mkdir()
+
+        save_project_config(project_dir, ProjectConfig(sharing=True, project="github.com/acme/app"))
+        loaded = load_project_config(project_dir)
+        assert loaded.sharing is True
+        assert loaded.project == "github.com/acme/app"
+
+    def test_project_config_without_project_name(self, tmp_path: Path):
+        project_dir = tmp_path / "no_name"
+        project_dir.mkdir()
+
+        save_project_config(project_dir, ProjectConfig(sharing=True))
+        loaded = load_project_config(project_dir)
+        assert loaded.sharing is True
+        assert loaded.project is None

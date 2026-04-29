@@ -75,11 +75,20 @@ class ClaudeCodeAdapter(CaptureAdapter):
         git = _collect_git_state(project_path) if project_path else {}
         now = datetime.now(timezone.utc).isoformat()
 
+        # Resolve project_id from per-project config
+        project_id = None
+        if project_path:
+            from hive.config import load_project_config
+
+            pc = load_project_config(Path(project_path))
+            project_id = pc.project
+
         self._api.upsert_session(
             {
                 "id": session_id,
                 "source": self.name(),
                 "project_path": project_path,
+                "project_id": project_id,
                 "author": git.get("author", ""),
                 "started_at": now,
                 "ended_at": None,
@@ -318,11 +327,20 @@ class ClaudeCodeAdapter(CaptureAdapter):
             git = _collect_git_state(project_path) if project_path else {}
             author = git.get("author", "")
 
+            # Resolve project_id from per-project config
+            backfill_project_id = None
+            if project_path:
+                from hive.config import load_project_config
+
+                pc = load_project_config(Path(project_path))
+                backfill_project_id = pc.project
+
             self._api.upsert_session(
                 {
                     "id": session_id,
                     "source": self.name(),
                     "project_path": project_path,
+                    "project_id": backfill_project_id,
                     "author": author,
                     "started_at": started,
                     "ended_at": ended,

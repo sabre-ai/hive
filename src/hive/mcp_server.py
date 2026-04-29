@@ -279,6 +279,7 @@ class RemoteBackend:
 _local: LocalBackend | None = None
 _remote: RemoteBackend | None = None
 _default_project: str | None = None
+_cwd: str | None = None
 
 
 def _ensure_backends() -> None:
@@ -309,16 +310,27 @@ def _get_backend_for_project(project: str | None) -> LocalBackend | RemoteBacken
     """Pick backend based on project sharing config.
 
     Shared projects route to the team server; unshared projects stay local.
+    Uses the original cwd for config lookup since project may now be a project_id.
     """
     _ensure_backends()
     assert _local is not None
 
-    if not project or not _remote:
+    if not _remote:
         return _local
 
-    project_config = load_project_config(Path(project))
-    if project_config.sharing:
-        return _remote
+    # Use the original cwd to check sharing config, since project might be
+    # a canonical project_id rather than a local path.
+    config_path = Path(_cwd) if _cwd else None
+    if config_path and config_path.is_dir():
+        project_config = load_project_config(config_path)
+        if project_config.sharing:
+            return _remote
+
+    # Fallback: try the project string as a path (backward compat)
+    if project and Path(project).is_dir():
+        project_config = load_project_config(Path(project))
+        if project_config.sharing:
+            return _remote
 
     return _local
 
@@ -780,8 +792,12 @@ async def _fallback_local(
 
 
 async def main() -> None:
-    global _default_project
-    _default_project = os.getcwd()
+    global _default_project, _cwd
+    _cwd = os.getcwd()
+
+    # Prefer canonical project_id from config; fall back to cwd path
+    pc = load_project_config(Path(_cwd))
+    _default_project = pc.project or _cwd
     logger.info("MCP: auto-detected project scope: %s", _default_project)
 
     from hive.store.db import init_db

@@ -19,12 +19,22 @@ class Base(DeclarativeBase):
     pass
 
 
+class Project(Base):
+    __tablename__ = "projects"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[str | None] = mapped_column(String, server_default=text("CURRENT_TIMESTAMP"))
+    created_by: Mapped[str | None] = mapped_column(String)
+
+
 class Session(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     source: Mapped[str] = mapped_column(String, nullable=False)
     project_path: Mapped[str | None] = mapped_column(String)
+    project_id: Mapped[str | None] = mapped_column(String)
     author: Mapped[str | None] = mapped_column(String)
     started_at: Mapped[str | None] = mapped_column(String)
     ended_at: Mapped[str | None] = mapped_column(String)
@@ -43,6 +53,7 @@ class Session(Base):
 
     __table_args__ = (
         Index("idx_sessions_project", "project_path"),
+        Index("idx_sessions_project_id", "project_id"),
         Index("idx_sessions_started", "started_at"),
     )
 

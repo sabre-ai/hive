@@ -60,19 +60,42 @@ def init(project: str):
     _install_git_hook(project_path)
 
     # 5. Ask about sharing
-    from hive.config import ProjectConfig, load_project_config, save_project_config
+    from hive.config import (
+        ProjectConfig,
+        load_project_config,
+        save_project_config,
+        set_server_url,
+    )
 
     current_pc = load_project_config(project_path)
     if not current_pc.sharing:
         console.print("  Session sharing...", end=" ")
         enable = click.confirm("Enable sharing to team server?", default=False)
         if enable:
-            save_project_config(project_path, ProjectConfig(sharing=True))
-            console.print(f"    Server URL: {config.server_url}")
+            # Get server URL
+            server_url = config.server_url
+            if config.is_solo:
+                server_url = click.prompt("    Team server URL")
+                set_server_url(server_url)
+
+            # Get project name
+            name = current_pc.project
+            if not name:
+                default = _detect_repo_name(project_path)
+                name = click.prompt("    Project name", default=default or None)
+            if not name:
+                console.print("[red]Project name is required[/red]")
+                raise SystemExit(1)
+
+            save_project_config(project_path, ProjectConfig(sharing=True, project=name))
+            console.print(f"    Server: {server_url}")
+            console.print(f"    Project: {name}")
         else:
             save_project_config(project_path, ProjectConfig(sharing=False))
     else:
         console.print(f"  Sharing already enabled (server: {config.server_url})")
+        if current_pc.project:
+            console.print(f"  Project: {current_pc.project}")
 
     # 6. Backfill existing sessions
     count = 0
@@ -242,15 +265,70 @@ def config_cmd():
 @config_cmd.command()
 @click.argument("state", type=click.Choice(["on", "off"]))
 @click.option("--project", default=".", help="Project directory")
-def sharing(state: str, project: str):
+@click.option("--team-server", default=None, help="Team server URL (required for 'on')")
+@click.option("--project-name", default=None, help="Canonical project name (required for 'on')")
+def sharing(state: str, project: str, team_server: str | None, project_name: str | None):
     """Enable or disable session sharing for a project."""
-    from hive.config import ProjectConfig, save_project_config
+    from hive.config import (
+        ProjectConfig,
+        load_project_config,
+        save_project_config,
+        set_server_url,
+    )
 
     project_path = Path(project).resolve()
-    pc = ProjectConfig(sharing=(state == "on"))
-    save_project_config(project_path, pc)
-    status = "enabled" if pc.sharing else "disabled"
-    console.print(f"[green]Sharing {status} for {project_path}[/green]")
+
+    if state == "off":
+        existing = load_project_config(project_path)
+        save_project_config(project_path, ProjectConfig(sharing=False, project=existing.project))
+        console.print(f"[green]Sharing disabled for {project_path}[/green]")
+        return
+
+    # state == "on"
+    existing = load_project_config(project_path)
+    config = Config.load()
+
+    # Resolve team server URL
+    server_url = team_server or config.server_url
+    if not team_server and config.is_solo:
+        server_url = click.prompt("Team server URL")
+    if team_server:
+        set_server_url(team_server)
+
+    # Resolve project name
+    name = project_name or existing.project
+    if not name:
+        default = _detect_repo_name(project_path)
+        name = click.prompt("Project name", default=default or None)
+    if not name:
+        console.print("[red]Project name is required when sharing is enabled[/red]")
+        raise SystemExit(1)
+
+    save_project_config(project_path, ProjectConfig(sharing=True, project=name))
+    console.print(f"[green]Sharing enabled for {project_path}[/green]")
+    console.print(f"  Project: {name}")
+    console.print(f"  Server:  {server_url}")
+
+
+def _detect_repo_name(project_path: Path) -> str | None:
+    """Try to derive a canonical project name from the git remote."""
+    import subprocess
+
+    from hive.util import normalize_repo_url
+
+    try:
+        proc = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=project_path,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            return normalize_repo_url(proc.stdout.strip())
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return None
 
 
 # ── capture (called by hooks) ──────────────────────────────────────
@@ -488,9 +566,9 @@ def projects():
     table.add_column("Last Active", style="green")
 
     for p in results:
-        path = p["project_path"]
-        # Show shortened path for readability
-        short = path.replace(str(Path.home()), "~") if path else ""
+        name = p["project"]
+        # Show shortened path for readability (project_id is already short)
+        short = name.replace(str(Path.home()), "~") if name else ""
         table.add_row(
             short,
             str(p.get("session_count", 0)),

@@ -95,23 +95,32 @@ For Docker and CI environments, these env vars take precedence over the TOML con
 Controls whether sessions from this project are auto-pushed to the team server on the `Stop` hook.
 
 ```toml
-sharing = "on"   # or "off"
+sharing = "on"          # or "off"
+project = "acme/my-app" # canonical project name (required when sharing = on)
 ```
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `sharing` | Yes | `"on"` or `"off"` — whether to auto-push sessions |
+| `project` | When sharing = on | Canonical project name used on the team server. All team members must use the same name. |
 
 ### Managing Sharing
 
 ```bash
-# Enable sharing for the current project
-hive config sharing on
+# Enable sharing with full configuration (one command)
+hive config sharing on --team-server http://team-server:3000 --project-name acme/my-app
+
+# Teammate who cloned the repo (project name already in .hive/config.toml)
+hive config sharing on --team-server http://team-server:3000
 
 # Disable sharing
 hive config sharing off
-
-# Enable for a specific project directory
-hive config sharing on --project /path/to/project
 ```
 
 The `hive init` command also prompts for this during setup.
+
+!!! tip "Commit `.hive/config.toml` to your repo"
+    The project name in `.hive/config.toml` should be committed to version control so teammates get it automatically when they clone.
 
 ## Scrub Configuration
 

@@ -188,6 +188,7 @@ class Config:
 @dataclass
 class ProjectConfig:
     sharing: bool = False
+    project: str | None = None
 
 
 def load_project_config(project_path: Path) -> ProjectConfig:
@@ -203,7 +204,8 @@ def load_project_config(project_path: Path) -> ProjectConfig:
             sharing = sharing_val.lower() in ("on", "true", "yes", "1")
         else:
             sharing = bool(sharing_val)
-        return ProjectConfig(sharing=sharing)
+        project = data.get("project") or None
+        return ProjectConfig(sharing=sharing, project=project)
     except Exception:
         return ProjectConfig()
 
@@ -213,6 +215,21 @@ def save_project_config(project_path: Path, project_config: ProjectConfig) -> No
     config_dir = project_path / ".hive"
     config_dir.mkdir(parents=True, exist_ok=True)
     config_file = config_dir / "config.toml"
-    data = {"sharing": "on" if project_config.sharing else "off"}
+    data: dict[str, str] = {"sharing": "on" if project_config.sharing else "off"}
+    if project_config.project:
+        data["project"] = project_config.project
     with open(config_file, "wb") as f:
+        tomli_w.dump(data, f)
+
+
+def set_server_url(url: str) -> None:
+    """Update server_url in the global config file."""
+    config_path = HIVE_CONFIG_DIR / "config.toml"
+    data: dict = {}
+    if config_path.exists():
+        with open(config_path, "rb") as f:
+            data = tomllib.load(f)
+    data["server_url"] = url
+    HIVE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "wb") as f:
         tomli_w.dump(data, f)

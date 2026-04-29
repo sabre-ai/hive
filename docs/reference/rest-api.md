@@ -67,7 +67,8 @@ Import a session. Returns `201 Created`.
 |-------|------|----------|-------------|
 | `id` | string | Yes | Session ID |
 | `source` | string | Yes | Source adapter name |
-| `project_path` | string | No | Absolute project path |
+| `project_path` | string | No | Absolute project path (local to the pushing machine) |
+| `project_id` | string | No | Canonical project name for cross-machine grouping (e.g., `acme/my-app`). Auto-registers the project on first push. |
 | `author` | string | No | Author name |
 | `started_at` | string | No | ISO timestamp |
 | `ended_at` | string | No | ISO timestamp |
@@ -85,6 +86,7 @@ curl -X POST http://localhost:3000/api/sessions \
     "id": "sess_abc123",
     "source": "claude_code",
     "project_path": "/home/alice/code/api",
+    "project_id": "acme/my-app",
     "author": "alice",
     "messages": [
       {"role": "human", "content": "Fix the login bug"},

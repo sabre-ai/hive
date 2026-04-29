@@ -194,8 +194,98 @@ class TestListProjects:
             )
         projects = query_api.list_projects()
         assert len(projects) == 2
-        paths = {p["project_path"] for p in projects}
-        assert paths == {"/proj/a", "/proj/b"}
+        names = {p["project"] for p in projects}
+        assert names == {"/proj/a", "/proj/b"}
 
-        proj_a = next(p for p in projects if p["project_path"] == "/proj/a")
+        proj_a = next(p for p in projects if p["project"] == "/proj/a")
         assert proj_a["session_count"] == 2
+
+    def test_list_projects_groups_by_project_id(self, query_api: QueryAPI):
+        """Sessions with same project_id but different paths should merge."""
+        for i, (path, pid) in enumerate(
+            [
+                ("/Users/alice/app", "github.com/acme/app"),
+                ("/home/bob/app", "github.com/acme/app"),
+                ("/proj/other", None),
+            ]
+        ):
+            query_api.upsert_session(
+                {
+                    "id": f"pid-{i}",
+                    "source": "claude-code",
+                    "project_path": path,
+                    "project_id": pid,
+                    "author": "dev",
+                    "started_at": f"2025-06-0{i + 1}T10:00:00",
+                    "ended_at": f"2025-06-0{i + 1}T10:30:00",
+                    "message_count": 1,
+                    "summary": None,
+                }
+            )
+        projects = query_api.list_projects()
+        names = {p["project"] for p in projects}
+        assert names == {"github.com/acme/app", "/proj/other"}
+
+        acme = next(p for p in projects if p["project"] == "github.com/acme/app")
+        assert acme["session_count"] == 2
+
+
+class TestProjectId:
+    def test_upsert_stores_project_id(self, query_api: QueryAPI):
+        query_api.upsert_session(
+            {
+                "id": "pid-test-1",
+                "source": "claude-code",
+                "project_path": "/Users/alice/app",
+                "project_id": "github.com/acme/app",
+                "author": "alice",
+                "started_at": "2025-06-01T10:00:00",
+                "message_count": 0,
+                "summary": None,
+            }
+        )
+        result = query_api.get_session("pid-test-1")
+        assert result["project_id"] == "github.com/acme/app"
+
+    def test_list_sessions_matches_project_id(self, query_api: QueryAPI):
+        query_api.upsert_session(
+            {
+                "id": "pid-filter-1",
+                "source": "claude-code",
+                "project_path": "/Users/alice/repos/app",
+                "project_id": "github.com/acme/app",
+                "author": "alice",
+                "started_at": "2025-06-01T10:00:00",
+                "message_count": 1,
+                "summary": None,
+            }
+        )
+        # Should match by project_id
+        results = query_api.list_sessions(project="github.com/acme/app")
+        assert len(results) == 1
+        assert results[0]["id"] == "pid-filter-1"
+
+    def test_import_session_auto_registers_project(self, query_api: QueryAPI):
+        payload = {
+            "id": "import-proj-1",
+            "source": "claude-code",
+            "project_path": "/Users/alice/app",
+            "project_id": "github.com/acme/app",
+            "author": "alice",
+            "started_at": "2025-06-01T10:00:00",
+            "ended_at": "2025-06-01T10:30:00",
+            "message_count": 0,
+            "summary": None,
+            "messages": [],
+            "enrichments": [],
+            "annotations": [],
+            "edges": [],
+        }
+        query_api.import_session(payload)
+        result = query_api.get_session("import-proj-1")
+        assert result["project_id"] == "github.com/acme/app"
+
+    def test_ensure_project_is_idempotent(self, query_api: QueryAPI):
+        query_api.ensure_project("github.com/acme/app", author="alice")
+        query_api.ensure_project("github.com/acme/app", author="bob")
+        # No error raised — second call is a no-op

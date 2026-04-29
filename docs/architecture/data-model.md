@@ -10,10 +10,18 @@ erDiagram
     sessions ||--o{ enrichments : has
     sessions ||--o{ annotations : has
     sessions ||--o{ edges : has
+    projects {
+        text id PK
+        text description
+        text created_by
+        datetime created_at
+    }
+    projects ||--o{ sessions : has
     sessions {
         text id PK
         text source
         text project_path
+        text project_id FK
         text author
         datetime started_at
         datetime ended_at
@@ -66,14 +74,26 @@ The central table. One row per AI coding session.
 |--------|------|-------------|-------------|
 | `id` | TEXT | PRIMARY KEY | UUID assigned by Claude Code |
 | `source` | TEXT | NOT NULL | Adapter name (e.g., `claude_code`) |
-| `project_path` | TEXT | | Absolute path to the project directory |
+| `project_path` | TEXT | | Absolute path to the project directory (local) |
+| `project_id` | TEXT | | Canonical project name for cross-machine identity (e.g., `github.com/acme/app`) |
 | `author` | TEXT | | Git `user.name` of the developer |
 | `started_at` | DATETIME | | ISO-8601 timestamp of session start |
 | `ended_at` | DATETIME | | ISO-8601 timestamp of session end |
 | `message_count` | INTEGER | DEFAULT 0 | Total messages in the conversation |
 | `summary` | TEXT | | First meaningful human message (truncated to 120 chars) |
 
-**Indexes:** `idx_sessions_project` on `project_path`, `idx_sessions_started` on `started_at`.
+**Indexes:** `idx_sessions_project` on `project_path`, `idx_sessions_project_id` on `project_id`, `idx_sessions_started` on `started_at`.
+
+### projects
+
+Auto-registered on the team server when the first session for a project is pushed. Provides a canonical identity for grouping sessions across team members.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | TEXT | PRIMARY KEY | Canonical project name (e.g., `acme/my-app`) |
+| `description` | TEXT | | Optional project description |
+| `created_by` | TEXT | | Author who first pushed a session for this project |
+| `created_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | When the project was first registered |
 
 ### messages
 
