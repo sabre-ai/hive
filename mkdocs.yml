@@ -133,6 +133,7 @@ nav:
     - Sharing Controls: tutorials/sharing-controls.md
     - Secret Scrubbing: tutorials/secret-scrubbing.md
     - File & Commit Lineage: tutorials/file-lineage.md
+    - Authentication: tutorials/authentication.md
     - Annotating Sessions: tutorials/annotating-sessions.md
   - Architecture: architecture/overview.md
   - Reference:

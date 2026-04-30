@@ -169,8 +169,9 @@ class LocalBackend:
 class RemoteBackend:
     """Async HTTP client that wraps the hive REST API."""
 
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, auth_client=None):
         self.base_url = base_url.rstrip("/")
+        self._auth = auth_client  # Optional AuthenticatedClient
 
     async def search(
         self,
@@ -262,12 +263,16 @@ class RemoteBackend:
         return await self._get("/api/stats", params=params)
 
     async def delete_session(self, session_id: str) -> dict:
+        if self._auth:
+            return await self._auth.async_delete(f"/api/sessions/{session_id}")
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.delete(f"{self.base_url}/api/sessions/{session_id}")
             r.raise_for_status()
             return r.json()
 
     async def _get(self, path: str, params: dict | None = None) -> Any:
+        if self._auth:
+            return await self._auth.async_get(path, params=params)
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.get(f"{self.base_url}{path}", params=params)
             r.raise_for_status()
@@ -290,7 +295,19 @@ def _ensure_backends() -> None:
     config = Config.load()
     _local = LocalBackend(config)
     if config.server_url:
-        _remote = RemoteBackend(config.server_url)
+        # Create auth-aware client if tokens are available
+        auth_client = None
+        try:
+            from hive.auth.client import AuthenticatedClient
+            from hive.auth.config import load_auth_tokens
+
+            tokens = load_auth_tokens()
+            if tokens.is_valid():
+                auth_client = AuthenticatedClient(config.server_url)
+                logger.info("MCP: using authenticated client for team server")
+        except Exception:
+            pass
+        _remote = RemoteBackend(config.server_url, auth_client=auth_client)
         logger.info("MCP: team server configured at %s", config.server_url)
     else:
         logger.info("MCP: no team server configured, local-only mode")

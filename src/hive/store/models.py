@@ -36,6 +36,7 @@ class Session(Base):
     project_path: Mapped[str | None] = mapped_column(String)
     project_id: Mapped[str | None] = mapped_column(String)
     author: Mapped[str | None] = mapped_column(String)
+    user_id: Mapped[str | None] = mapped_column(String)
     started_at: Mapped[str | None] = mapped_column(String)
     ended_at: Mapped[str | None] = mapped_column(String)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -105,6 +106,7 @@ class Annotation(Base):
     type: Mapped[str] = mapped_column(String, nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     author: Mapped[str | None] = mapped_column(String)
+    user_id: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[str | None] = mapped_column(String, server_default=text("CURRENT_TIMESTAMP"))
 
     session: Mapped[Session] = relationship(back_populates="annotations")

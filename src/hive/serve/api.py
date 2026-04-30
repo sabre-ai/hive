@@ -6,10 +6,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from hive.auth.config import AuthConfig
+from hive.auth.middleware import require_auth, set_auth_config
 from hive.config import Config
 from hive.store.query import QueryAPI
 
@@ -53,10 +55,18 @@ class SessionPushPayload(BaseModel):
 # ── App factory ─────────────────────────────────────────────────────
 
 
-def create_app(config: Config | None = None, db_path: Path | None = None) -> FastAPI:
+def create_app(
+    config: Config | None = None,
+    db_path: Path | None = None,
+    raw_config: dict | None = None,
+) -> FastAPI:
     """Build and return a configured FastAPI application."""
     cfg = config or Config.load()
     query = QueryAPI(cfg, db_path=db_path)
+
+    # Load auth configuration
+    auth_cfg = AuthConfig.load(raw_config)
+    set_auth_config(auth_cfg)
 
     app = FastAPI(
         title="hive",
@@ -73,6 +83,14 @@ def create_app(config: Config | None = None, db_path: Path | None = None) -> Fas
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Mount auth routes if enabled
+    if auth_cfg.enabled:
+        from hive.auth.routes import create_auth_router
+        from hive.store.db import get_session_factory
+
+        session_factory = get_session_factory(cfg, db_path=db_path)
+        app.include_router(create_auth_router(auth_cfg, session_factory))
 
     # ── API routes ──────────────────────────────────────────────────
 
@@ -111,8 +129,16 @@ def create_app(config: Config | None = None, db_path: Path | None = None) -> Fas
         )
 
     @app.post("/api/sessions", status_code=201)
-    def import_session(body: SessionPushPayload) -> dict[str, Any]:
-        query.import_session(body.model_dump())
+    def import_session(
+        body: SessionPushPayload,
+        user: dict | None = Depends(require_auth),  # noqa: B008
+    ) -> dict[str, Any]:
+        data = body.model_dump()
+        # When auth is enabled, enforce identity from JWT
+        if user is not None:
+            data["author"] = user.get("email", data.get("author"))
+            data["user_id"] = user.get("sub")
+        query.import_session(data)
         return {"status": "ok", "session_id": body.id}
 
     @app.get("/api/sessions/{session_id}")
@@ -135,7 +161,10 @@ def create_app(config: Config | None = None, db_path: Path | None = None) -> Fas
         return result
 
     @app.delete("/api/sessions/{session_id}")
-    def delete_session(session_id: str) -> dict[str, Any]:
+    def delete_session(
+        session_id: str,
+        user: dict | None = Depends(require_auth),  # noqa: B008
+    ) -> dict[str, Any]:
         deleted = query.delete_session(session_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -180,8 +209,15 @@ def create_app(config: Config | None = None, db_path: Path | None = None) -> Fas
         return query.list_projects()
 
     @app.post("/api/annotations", status_code=201)
-    def create_annotation(body: AnnotationRequest) -> AnnotationResponse:
-        author = body.author or "user"
+    def create_annotation(
+        body: AnnotationRequest,
+        user: dict | None = Depends(require_auth),  # noqa: B008
+    ) -> AnnotationResponse:
+        # When auth is enabled, use identity from JWT
+        if user is not None:
+            author = user.get("email", body.author or "user")
+        else:
+            author = body.author or "user"
         row_id = query.write_annotation(
             session_id=body.session_id,
             ann_type=body.type,

@@ -802,6 +802,18 @@ def push(project: str | None, since: str | None, dry_run: bool):
     failed = 0
     skipped = 0
 
+    # Use auth-aware client if tokens are available
+    auth_client = None
+    try:
+        from hive.auth.client import AuthenticatedClient
+        from hive.auth.config import load_auth_tokens
+
+        tokens = load_auth_tokens()
+        if tokens.is_valid():
+            auth_client = AuthenticatedClient(config.server_url)
+    except Exception:
+        pass
+
     with httpx.Client(timeout=60) as client:
         # Check server health first
         try:
@@ -822,11 +834,14 @@ def push(project: str | None, since: str | None, dry_run: bool):
             payload = scrub_payload(payload, config)
 
             try:
-                r = client.post(
-                    f"{config.server_url}/api/sessions",
-                    json=payload,
-                )
-                r.raise_for_status()
+                if auth_client:
+                    auth_client.sync_post("/api/sessions", json=payload)
+                else:
+                    r = client.post(
+                        f"{config.server_url}/api/sessions",
+                        json=payload,
+                    )
+                    r.raise_for_status()
                 pushed += 1
                 console.print(f"  [green]✓[/green] {sid[:12]} — {(s.get('summary') or '')[:50]}")
             except Exception as e:
@@ -834,6 +849,213 @@ def push(project: str | None, since: str | None, dry_run: bool):
                 console.print(f"  [red]✗[/red] {sid[:12]} — {e}")
 
     console.print(f"\n[bold]Pushed {pushed}, skipped {skipped}, failed {failed}[/bold]")
+
+
+# ── auth ──────────────────────────────────────────────────────────
+
+
+@cli.command()
+@click.option("--server", default=None, help="Team server URL (overrides config)")
+def login(server: str | None):
+    """Authenticate with the team server via OIDC."""
+    import base64
+    import hashlib
+    import http.server
+    import secrets
+    import threading
+    import urllib.parse
+    import webbrowser
+
+    import httpx
+
+    from hive.auth.config import AuthTokens, save_auth_tokens
+
+    config = Config.load()
+    server_url = server or config.server_url
+
+    # 1. Fetch server discovery
+    console.print(f"\n  [bold]Connecting to {server_url}...[/bold]")
+    try:
+        with httpx.Client(timeout=10) as client:
+            r = client.get(f"{server_url}/auth/discovery")
+            r.raise_for_status()
+            disc = r.json()
+    except Exception as e:
+        console.print(f"[red]Cannot reach server: {e}[/red]")
+        return
+
+    if not disc.get("auth_enabled"):
+        console.print("[yellow]Authentication is not enabled on this server.[/yellow]")
+        return
+
+    # 2. Generate PKCE
+    code_verifier = secrets.token_urlsafe(96)
+    code_challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+        .rstrip(b"=")
+        .decode()
+    )
+    state = secrets.token_urlsafe(32)
+
+    # 3. Start local callback server
+    auth_code_result: dict = {}
+
+    class CallbackHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urllib.parse.urlparse(self.path)
+            params = urllib.parse.parse_qs(parsed.query)
+            auth_code_result["code"] = params.get("code", [None])[0]
+            auth_code_result["state"] = params.get("state", [None])[0]
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                b"<html><body><h2>Login successful!</h2>"
+                b"<p>You can close this tab and return to the terminal.</p>"
+                b"</body></html>"
+            )
+
+        def log_message(self, format, *args):
+            pass  # Suppress HTTP logs
+
+    callback_server = http.server.HTTPServer(("127.0.0.1", 0), CallbackHandler)
+    port = callback_server.server_address[1]
+    redirect_uri = f"http://localhost:{port}/callback"
+
+    thread = threading.Thread(target=callback_server.handle_request, daemon=True)
+    thread.start()
+
+    # 4. Open browser
+    auth_url = (
+        f"{disc['authorization_endpoint']}?"
+        f"response_type=code&"
+        f"client_id={disc['client_id']}&"
+        f"redirect_uri={urllib.parse.quote(redirect_uri)}&"
+        f"scope={urllib.parse.quote(' '.join(disc['scopes']))}&"
+        f"code_challenge={code_challenge}&"
+        f"code_challenge_method=S256&"
+        f"state={state}"
+    )
+
+    console.print("  Opening browser to authenticate...\n")
+    console.print("  [dim]If the browser didn't open, visit:[/dim]")
+    console.print(f"  [dim]{auth_url}[/dim]\n")
+    webbrowser.open(auth_url)
+
+    # 5. Wait for callback
+    console.print("  Waiting for authentication...", end=" ")
+    thread.join(timeout=120)
+    callback_server.server_close()
+
+    code = auth_code_result.get("code")
+    returned_state = auth_code_result.get("state")
+
+    if not code:
+        console.print("[red]✗[/red]")
+        console.print("[red]Authentication timed out or was cancelled.[/red]")
+        return
+
+    if returned_state != state:
+        console.print("[red]✗[/red]")
+        console.print("[red]State mismatch — possible CSRF attack.[/red]")
+        return
+
+    # 6. Exchange code for tokens
+    try:
+        with httpx.Client(timeout=15) as client:
+            r = client.post(
+                f"{server_url}/auth/callback",
+                json={
+                    "code": code,
+                    "code_verifier": code_verifier,
+                    "redirect_uri": redirect_uri,
+                },
+            )
+            r.raise_for_status()
+            token_data = r.json()
+    except httpx.HTTPStatusError as e:
+        console.print("[red]✗[/red]")
+        console.print(f"[red]Login failed: {e.response.text}[/red]")
+        return
+    except Exception as e:
+        console.print("[red]✗[/red]")
+        console.print(f"[red]Login failed: {e}[/red]")
+        return
+
+    # 7. Save tokens
+    tokens = AuthTokens(
+        access_token=token_data["access_token"],
+        refresh_token=token_data["refresh_token"],
+        email=token_data.get("user", {}).get("email", ""),
+        server=server_url,
+    )
+    save_auth_tokens(tokens)
+
+    console.print("[green]✓[/green]")
+    console.print(f"\n  Logged in as [bold]{tokens.email}[/bold]")
+    console.print(f"  Server: {server_url}\n")
+
+
+@cli.command()
+def logout():
+    """Log out from the team server."""
+    import httpx
+
+    from hive.auth.config import clear_auth_tokens, load_auth_tokens
+
+    tokens = load_auth_tokens()
+    if not tokens.is_valid():
+        console.print("[dim]Not logged in.[/dim]")
+        return
+
+    # Revoke refresh token server-side
+    config = Config.load()
+    server_url = tokens.server or config.server_url
+    try:
+        with httpx.Client(timeout=10) as client:
+            client.post(
+                f"{server_url}/auth/logout",
+                json={"refresh_token": tokens.refresh_token},
+                headers={"Authorization": f"Bearer {tokens.access_token}"},
+            )
+    except Exception:
+        pass  # Best-effort revocation
+
+    clear_auth_tokens()
+    console.print(f"Logged out from {server_url}")
+
+
+@cli.command()
+def whoami():
+    """Show the currently authenticated user."""
+    from hive.auth.config import load_auth_tokens
+
+    tokens = load_auth_tokens()
+    if not tokens.is_valid():
+        console.print("Not logged in. Run [bold]hive login[/bold] to authenticate.")
+        return
+
+    # Decode JWT to show expiry (without verification — just for display)
+    import jwt
+
+    try:
+        claims = jwt.decode(tokens.access_token, options={"verify_signature": False})
+        import datetime
+
+        exp = datetime.datetime.fromtimestamp(claims["exp"], tz=datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        remaining = exp - now
+        if remaining.total_seconds() > 0:
+            mins = int(remaining.total_seconds() / 60)
+            expiry_str = f"in {mins} minutes"
+        else:
+            expiry_str = "[red]expired[/red]"
+    except Exception:
+        expiry_str = "unknown"
+
+    console.print(f"Logged in as: [bold]{tokens.email}[/bold]")
+    console.print(f"Server: {tokens.server}")
+    console.print(f"Token expires: {expiry_str}")
 
 
 # ── serve ───────────────────────────────────────────────────────────
@@ -919,7 +1141,24 @@ def serve(port: int | None, no_search: bool):
         console.print(f"  Server DB: {display_url}")
     else:
         console.print(f"  Server DB: {config.server_db_path}")
-    app = create_app(config=config, db_path=db_path)
+    # Load raw TOML for auth config
+    raw_config = None
+    from hive.config import DEFAULT_CONFIG_PATH
+
+    if DEFAULT_CONFIG_PATH.exists():
+        import sys
+
+        if sys.version_info >= (3, 12):
+            import tomllib
+        else:
+            try:
+                import tomllib
+            except ModuleNotFoundError:
+                import tomli as tomllib  # type: ignore[no-redef]
+        with open(DEFAULT_CONFIG_PATH, "rb") as f:
+            raw_config = tomllib.load(f)
+
+    app = create_app(config=config, db_path=db_path, raw_config=raw_config)
 
     def _shutdown(signum, frame):
         if search_proc:
