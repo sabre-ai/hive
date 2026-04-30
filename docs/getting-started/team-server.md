@@ -21,8 +21,8 @@ For quick local testing or small teams, install from source and run:
 hive serve --port 3000
 ```
 
-!!! warning "No built-in auth in MVP"
-    Run on a trusted network or behind an authenticating reverse proxy (OAuth2 Proxy, Tailscale, etc.).
+!!! tip "Secure your server"
+    Enable [built-in OIDC authentication](../tutorials/authentication.md) to protect write endpoints, or run behind an authenticating reverse proxy.
 
 ## Connect each developer's machine
 

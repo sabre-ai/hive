@@ -7,14 +7,13 @@ hive handles AI session transcripts which may contain sensitive information. Thi
 hive is designed as a **local-first** tool with optional team sharing. The security model assumes:
 
 - **Trusted local machine**: The developer's laptop is trusted. Local `store.db` is not encrypted at rest.
-- **Trusted network for team mode**: The MVP team server does not enforce authentication. It should run on a trusted network or behind a reverse proxy with auth.
-- **No auth in MVP**: The REST API accepts unauthenticated requests. Authentication is planned for a future release.
+- **Team server authentication**: The team server supports [built-in OIDC authentication](tutorials/authentication.md) to protect write endpoints. If auth is not enabled, run the server on a trusted network or behind a reverse proxy with auth.
 - **Secrets in transcripts**: AI coding sessions routinely contain API keys, tokens, and passwords. hive scrubs these before storage and before push.
 
-!!! warning "Team server access control"
-    The team server has no built-in authentication. Run it behind a reverse
-    proxy (nginx, Caddy, etc.) with your preferred auth mechanism, or restrict
-    access at the network level.
+!!! tip "Enable authentication"
+    The team server ships with built-in OIDC authentication. See the
+    [Authentication tutorial](tutorials/authentication.md) to set it up with
+    your identity provider.
 
 ## Secret Scrubbing
 
